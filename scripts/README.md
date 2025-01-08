@@ -46,13 +46,13 @@ A utility script for processing article content.
                            --format2extract <sent|par> \
                            --save_name <output_file_name>`
 
-
+```
 ### Example
 ```python extract_articles.py --data_path data/search_terms.csv \
                            --output_dir results/ \
                            --format2extract sent \
                            --save_name cell_line_sentences
-
+```
 
 ### Expected Output from script
 - Extracted data is saved as a CSV file in the specified output_dir.
@@ -71,4 +71,5 @@ This project is open-source and available under the *** License.
    ```bash
    git clone <repository-url>
    cd <repository-folder>
+   ```
 

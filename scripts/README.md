@@ -40,18 +40,18 @@ A utility script for processing article content.
   - `sentencise_in_parallel`: Extracts sentences from articles concurrently.
   - `get_df`: Processes paragraphs, sections, and figure captions concurrently.
 
-## Usage
-`python extract_articles.py --data_path <path_to_csv> \
+## Usage:
+```python extract_articles.py --data_path <path_to_csv> \
                            --output_dir <output_directory> \
                            --format2extract <sent|par> \
                            --save_name <output_file_name>`
 
 
 ### Example
-`python extract_articles.py --data_path data/search_terms.csv \
+```python extract_articles.py --data_path data/search_terms.csv \
                            --output_dir results/ \
                            --format2extract sent \
-                           --save_name cell_line_sentences`
+                           --save_name cell_line_sentences
 
 
 ### Expected Output from script

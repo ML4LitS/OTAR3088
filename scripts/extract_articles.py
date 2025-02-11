@@ -65,36 +65,33 @@ len(query_list)
 # Function to search EuropePMC using entity of interest query and store results in a DataFrame
 #not implementing cursormark as all possible results isn't important
 def search_epmc(query, page_size=25):
-    query = f"{query} HAS_FT:Y AND OPEN_ACCESS:Y" #strictly extracting only open access and fulltext articles
+    full_search_query = f"{query} HAS_FT:Y AND OPEN_ACCESS:Y AND LICENSE:CC" #epmc allows you to search directly for full text articles and open access articles
     base_url = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
     params = {
-        "query": query,
-        "format": "json",
-        "pageSize": page_size, #pagesize params can be changed if more results are desired
+        "query": full_search_query,
+        "format": "JSON",
+        "pageSize": page_size
     }
-
+    
     response = requests.get(base_url, params=params)
     data = response.json()
-    
+    try:
+        if "resultList" in data:
+            article_list = [
+                (
+                    article.get("pmcid", None),
+                    article.get("title", None),
+                    article.get("pubType", None)
+                ) for article in data["resultList"]["result"]
+            ]
+        else:
+            article_list = []
+        return pd.DataFrame(article_list, columns=['PMCID', 'Title', 'PubType'])
 
-    # List to store article data
-    articles_list = []
 
-    if 'resultList' in data:
-        for article in data['resultList']['result']:
-            title = article.get('title')
-            pmcid = article.get('pmcid')
-            article_type = article.get("pubType") 
-            articles_list.append((pmcid, title,
-                                  article_type, 
-                                  ))
-
-    # Create a DataFrame with the articles
-    df = pd.DataFrame(articles_list, columns=['PMCID', 'Title', 
-                                              'PubType'
-                                             ])
-    
-    return df
+    except requests.exceptions.RequestException as e:
+        print(f"Error loading results from EPMC. See error: {e}")
+        return pd.DataFrame(columns=['PMCID', 'Title', 'PubType'])
 
 #testing function with sample query and printing to terminal
 print("Displaying example search results for a sample query")
@@ -103,16 +100,16 @@ print(search_epmc(query_list[0]))
 
 
 # Search for all query and aggregate results into one DataFrame
-query_df = pd.DataFrame()
+articles_df = pd.DataFrame()
  
 
 for query in tqdm(query_list, desc="Searching EPMC for Cell Line articles----->"):
     result_df = search_epmc(query)
     result_df['search_query'] = query
-    query_df = pd.concat([query_df, result_df], ignore_index=True)
+    articles_df = pd.concat([articles_df, result_df], ignore_index=True)
 
-print(f"resulting dataframe when all query is applied has shape: {query_df.shape}")
-logging.info(query_df.head(10))
+print(f"resulting dataframe when all query is applied has shape: {articles_df.shape}")
+logging.info(articles_df.head(10))
 
 
 # Separate function to fetch batches of articles from EuropePMC----> not used by default in script
@@ -163,31 +160,31 @@ def search_epmc(query, page_size=25, delay=1):
 
 
 #check for missing values
-print(query_df.isnull().sum())
+print(articles_df.isnull().sum())
 
 
 # Check for missing values in the 'PMCID' column
-if query_df['PMCID'].isnull().any():
+if articles_df['PMCID'].isnull().any():
     print("Missing values detected in 'PMCID' column. Dropping rows with missing values...")
-    query_df = query_df[query_df['PMCID'].notnull()]
-    logging.info(f"Data shape after dropping missing values: {query_df.shape}")
+    articles_df = articles_df[articles_df['PMCID'].notnull()]
+    logging.info(f"Data shape after dropping missing values: {articles_df.shape}")
 else:
     print("No missing values detected in 'PMCID' column.")
 
 # Check for duplicate values in the 'PMCID' column
-if query_df['PMCID'].duplicated().any():
+if articles_df['PMCID'].duplicated().any():
     print("Duplicate values detected in 'PMCID' column. Dropping duplicate rows...")
-    query_df = query_df.drop_duplicates(subset='PMCID', keep='first')
-    logging.info(f"Data shape after dropping duplicates: {query_df.shape}")
+    articles_df = articles_df.drop_duplicates(subset='PMCID', keep='first')
+    logging.info(f"Data shape after dropping duplicates: {articles_df.shape}")
 else:
     print("No duplicate values detected in 'PMCID' column.")
 
 
 #check for retracted publications
-if (query_df['PubType'] == 'retraction of publication').any():
+if (articles_df['PubType'] == 'retraction of publication').any():
     #dropping retracted articles
-    query_df = query_df.query("PubType!='retraction of publication'")
-    logging.info(f"Data shape after dropping retracted articles: {query_df.shape}")
+    articles_df = articles_df.query("PubType!='retraction of publication'")
+    logging.info(f"Data shape after dropping retracted articles: {articles_df.shape}")
 
 
 
@@ -196,15 +193,19 @@ if (query_df['PubType'] == 'retraction of publication').any():
 
 if args.format2extract == 'sent': 
     print("Sentenciser in progress")
-    df = split2sent_par.sentencise_in_parallel(query_df)
+    func_call = split2sent_par.sentencise_articles
+    df = split2sent_par.parallel_process_articles(articles_df, func_call)
+    print(df.head())
+    df['Sentences'] = df['Sentences'].apply(split2sent_par.postprocess_sentences)
     print("Sentenciser completed")
     logging.info(f"Sentencised data has shape: {df.shape}")
 
 
 elif args.format2extract == "par":
     print("Extracting articles paragraphs and section_titles")
-    df = split2sent_par.get_df(query_df)
-    print("Extraction completed")
+    func_call = split2sent_par.process_in_paragraph
+    df = split2sent_par.parallel_process_articles(articles_df, func_call, process_par=True)
+    print("Paragraph extraction completed")
     logging.info(f"Data split in paragraphs has shape: {df.shape}")
 
 

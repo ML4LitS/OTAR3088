@@ -1,8 +1,10 @@
 
 """
 Script Name: split2sent_par.py
-Description: This script contains functions used for splitting articles into sentences and paragraphs. It assumes articles are extracted in XML format
-Usage: Works as a utility script imported into another.Functions can be imported independently, although, important to note that some are inter-dependent 
+Description: This script contains functions used for splitting articles into sentences and paragraphs. It assumes
+articles are extracted in XML format
+Usage: Works as a utility script imported into another.Functions can be imported independently, although, important
+to note that some are inter-dependent
 """
 
 __author__ = "EPMC team"
@@ -10,59 +12,50 @@ __email__ = "*****@ebi.ac.uk"
 __version__ = "1.0.0"
 
 
-
-
 from tqdm import tqdm
 import pandas as pd
 from typing import Tuple, Dict, Any, List
-import requests, re, time
-
+import requests, re
 import spacy, scispacy
-
-
 from bs4 import BeautifulSoup as bs
 from multiprocessing import cpu_count, Pool
 
 
-#using scibert spacy model for biomedical texts
- #model can be changed to different sizes.  Disabling other unnessary components to make pipeline run faster
+# using scibert spacy model for biomedical texts
+# model can be changed to different sizes.  Disabling other unnessary components to make pipeline run faster
 nlp = spacy.load("en_core_sci_lg", disable=["tagger", "parser", "ner", "lemmatizer", "attribute_ruler"]) 
 nlp.add_pipe("sentencizer")
 nlp.max_length = 10_000_000 
 
 
-
-#function to fetch articles xml 
+# function to fetch articles xml
 def get_xml(pmcid: str) -> bs:
     """
-    Extracts XML only content from EPMC using article PMCID
+    Extracts XML only content from ePMC using article PMCID
     
     Args:
     pmcid: Unique Article Identifier
-
     Returns:
     On a successful call to the API, returns a soup element, otherwise None
 
     """
     url = f"https://www.ebi.ac.uk/europepmc/webservices/rest/{pmcid}/fullTextXML"
     try:
-        response = requests.get(url)
-        response.raise_for_status() # Raise an error if the response code is not 200
-        return bs(response.content, "lxml-xml")
-        
+        resp = requests.get(url)
+        resp.raise_for_status()  # Raise an error if the response code is not 200
+        return bs(resp.content, "lxml-xml")
+
     except requests.exceptions.HTTPError as http_err: 
         print(f"HTTP error occurred: {http_err}")
 
     except requests.exceptions.RequestException as req_err:
         print(f"Request error occurred: {req_err}")
-    print(f"Failed to retrieve XML file for PMCID: {pmcid}") #articles can be available in other formats other than xml, we can skip these
+    # articles can be available in formats other than xml, we can skip these
+    print(f"Failed to retrieve XML file for PMCID: {pmcid}")
     return None
-            
 
 
-
-
-def filter_tags(soup:bs) -> bs:
+def filter_tags(soup: bs) -> bs:
     """
     Cleans the XML content by removing specific tags and unwanted sections.
 
@@ -72,21 +65,20 @@ def filter_tags(soup:bs) -> bs:
 
     Args:
         soup (BeautifulSoup-bs object): Parsed XML content.
-
     Returns:
         soup: Cleaned XML with the specified tags and sections removed.
     """
 
     # Tags to ignore by name
     tags2ignore = ['inline-formula', 'supplementary-material', 'ack', 'contrib-group', 
-                   "disclaimer","Disclosure",
-                   'sup', 'Acknowledgments','COI-statement']
+                   "disclaimer", "Disclosure",
+                   'sup', 'Acknowledgments', 'COI-statement']
     
     # Keywords indicating sections to be removed
-    section_keywords = ['Disclaimer', 'author contributions', 
-                       'Conflict of interest', "Publisher’s note", 
-                       'Supplementary information', "Supplementary material", "Disclosure", 
-                       ]
+    section_keywords = ['Disclaimer', 'author contributions',
+                        'Conflict of interest', "Publisher’s note",
+                        'Supplementary information', "Supplementary material", "Disclosure",
+                        ]
 
     # Remove tags by name
     for tag_name in tags2ignore:
@@ -102,9 +94,8 @@ def filter_tags(soup:bs) -> bs:
     return soup
 
 
-
-#function to fetch paragraph text from xml--> used for sentenciser
-def get_full_text(soup:bs) -> Tuple[str,str]:
+# function to fetch paragraph text from xml--> used for sentenciser
+def get_full_text(soup: bs) -> Tuple[str, str]:
     """
     Extracts article body and abstract text 
     This function extracts an article title, abstract, body text. 
@@ -112,7 +103,6 @@ def get_full_text(soup:bs) -> Tuple[str,str]:
 
     Args: 
     soup(bs): a BeautifulSoup object containing the XML content of the article
-
     Returns: 
     title(str): Article title 
     full_text(str): Article body(abstract + body)
@@ -121,48 +111,43 @@ def get_full_text(soup:bs) -> Tuple[str,str]:
     
     if soup:
         try:
-            #filter unwanted tags
+            # filter unwanted tags
             soup = filter_tags(soup)
-            #extract article title
-            title = soup.find("article-title").text if soup.find("article-title") else "Article is missing a title" #encountered some of these earlier, specifically with books. so catching them here
-            #clean title for extra whitespace using clean text fun
+            # extract article title
+            # Catch missing titles, found specifically with books
+            title = soup.find("article-title").text if soup.find("article-title") else "Article is missing a title"
+            # clean title for extra whitespace using clean text fun
             title = clean_text(title)
             
-            #extract abstract 
+            # extract abstract
             abstract = soup.find("abstract")
             abstract_text = (" ".join([clean_text(p.text) for p in abstract.find_all("p") if p.text]) if abstract else "")
             
-            #extract body of article
+            # extract body of article
             
             body_tag = soup.find("body")
             body_text = (" ".join([clean_text(p.text) for p in body_tag.find_all("p")
-                                            if p.text]) if body_tag else "")
+                                   if p.text]) if body_tag else "")
             
             full_text = f"{abstract_text}{body_text}".strip()
             
             return title, full_text
-        
-        
+
         except Exception as e:
             print(f"Error processing XML: {e}")
-            return "Error extracting title"
-        
-        
-        
+            return "Error extracting title", ""
+
     else:
         return "No XML provided", ""
         
-            
-                       
 
-def clean_text(text:str) -> str:
+def clean_text(text: str) -> str:
     """
     This function cleans a text by filtering reference patterns in text, 
     extra whitespaces, escaped latex-style formatting appearing in text body instead of predefined latex tags
 
     Args: 
     text(str): The text to be cleaned
-    
     Returns: 
     tex(str): The cleaned text 
     
@@ -183,12 +168,11 @@ def clean_text(text:str) -> str:
 
 def sentencise_articles(row: Dict[str, Any], nlp: spacy.language.Language = nlp) -> List[Dict[str, str]]:
     """
-    This function processes a row from a dataframe containing a PMCID and extracts sentence-level information from the article's text.
+    Process a row of df, containing a PMCID, extract sentence-level information from the corresponding article's text
     
     Args:
         row (Dict[str, Any]): A dataframe series with "PMCID" as key for the article.
         nlp (spacy.language.Language): A Sci-SpaCy NLP model used for sentence segmentation.
-        
     Returns:
         List[Dict[str, str]]: A list of dictionaries, each containing:
             - "PMCID": The PMCID identifier for an article.
@@ -208,14 +192,13 @@ def sentencise_articles(row: Dict[str, Any], nlp: spacy.language.Language = nlp)
     return articles
 
 
-def postprocess_sentences(sentence:List) -> List:
+def postprocess_sentences(sentence: List) -> List:
     """
     Cleans a list of sentences after the sentence segmentation by removing unwanted characters like "a)", ")", or "(" 
     from the beginning or end of each sentence. Only used for sentence split articles
 
     Args: 
     Sentences: A list of sentences
-
     Returns: 
     Cleaned_Sentences: List of cleaned sentences
     """
@@ -223,16 +206,12 @@ def postprocess_sentences(sentence:List) -> List:
     return cleaned
 
 
-
-
-
-def process_in_paragraph(row):
+def process_in_paragraph(row: pd.Series) -> List:
     """
     Processes an article's sections, paragraphs, and figure captions.
 
     Args:
         row: A pandas series.
-
     Returns:
         list: A list of tuples containing PMCID, Title, Section-title, and paragraph text.
     """
@@ -244,7 +223,8 @@ def process_in_paragraph(row):
 
     try:
         soup = filter_tags(soup)
-        title = soup.find("article-title").text if soup.find("article-title") else "Article is missing a title" #encountered some of these earlier, specifically with books. so catching them here
+        # Catch missing titles, found specifically with books
+        title = soup.find("article-title").text if soup.find("article-title") else "Article is missing a title"
         title = clean_text(title)
         rows = []
 
@@ -273,7 +253,6 @@ def process_in_paragraph(row):
                     caption_text = clean_text(caption.get_text(separator=" ").strip())
                     figure_title = f"{section_title} - Figure Caption"
                     rows.append((pmcid, title, figure_title, caption_text))
-                
 
         return rows
 
@@ -282,27 +261,24 @@ def process_in_paragraph(row):
         return []
         
 
-def parallel_process_articles(df: pd.DataFrame, func: callable, process_par:bool=False) -> pd.DataFrame:
+def parallel_process_articles(df: pd.DataFrame, func: callable, process_par: bool = False) -> pd.DataFrame:
     """
-    Generic parallel processing function to speed up all other functions. Works for both splitting in sentences and paragraph.
-    
+    Generic parallel processing function to speed up all other functions.
+    Works for both splitting in sentences and paragraph.
 
     Args:
         df (pd.DataFrame): The input DataFrame.
         func (callable): The function to apply multiprocessing to: sentencise_articles or process_in_paragraph
         processing_type(str): choices ['sent', 'par']; where sent=sentenciser, and 'par'=split paragraph
-
     Returns:
         pd.DataFrame: Processed DataFrame.
     """
-    
-        
+
     data = [row for _, row in df.iterrows()]
-    
 
     with Pool(cpu_count()) as pool:
         results = list(tqdm(pool.imap_unordered(func, data), total=len(data), desc="Extracting and processing Articles"))
-        #print(f"While results looks like this: {results}")
+        # print(f"While results looks like this: {results}")
     # Flatten lists and filter out malformed results if applicable
     flattened_results = [item for sublist in results if isinstance(sublist, list) for item in sublist]
     if process_par:

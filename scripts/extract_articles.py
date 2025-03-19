@@ -1,27 +1,29 @@
-import re,json,os, requests, time
+import re, json, os, requests, time
 from tqdm import tqdm
 import split2sent_par
 
 from argparse import ArgumentParser
 import logging
 from pathlib import Path
-
 import pandas as pd
+
 
 parser = ArgumentParser()
 parser.add_argument("--data_path", type=str, required=True, help="path to the file to be used for data extraction. Only `csv` format currently supported")
 parser.add_argument("--log_dir", type=str, required=False, help="path to directory for logging")
 parser.add_argument("--output_dir", type=str, default="./", help="path to directory to save extracted data")
 parser.add_argument("--format2extract", type=str, default="sent",
-                     help="type of data extraction. Data can be extracted split in sentences or split in paragraphs. Use `sent` for sentences and `par` for paragraph. For paragraph, figure caption and section headers are included")
+                    help="type of data extraction. Data can be extracted split in sentences or split in paragraphs. Use `sent` for sentences and `par` for paragraph. For paragraph, figure caption and section headers are included")
 parser.add_argument("--save_name", type=str, required=True, help="name for saving dataset")
 
-#initialise args
+# initialise args
 args = parser.parse_args()
 
 if not args.log_dir:
     logs_path = Path(args.output_dir)
     logs_path.mkdir(parents=True, exist_ok=True)
+else:
+    logs_path = args.log_dir
 
 # Configure logging
 logging.basicConfig(
@@ -33,22 +35,22 @@ logging.basicConfig(
 )
 
 
-
-
 print("reading data.......")
 metadata = pd.read_csv(args.data_path)
 logging.info(f"Current data parsed has shape: {metadata.shape}")
 
 
-
-#function to construct query
-def construct_search_query(row):
+def construct_search_query(row: pd.Series) -> str:
+    """
+    construct search query for entity + all synonyms in row
+    """
     term = row["term"]
     term = f'"{term}"'
 
-    synonymn = [f'"{i.strip()}"' for i in row['synonymn'].split(",")]
+    # TODO - Check if typo is how column name is spelt in csv
+    synonym = [f'"{i.strip()}"' for i in row['synonymn'].split(",")]
 
-    query = " OR ".join([term] + synonymn)
+    query = " OR ".join([term] + synonym)
     query = f"({query})"
 
     return query
@@ -62,10 +64,12 @@ query_list = metadata.search_query.tolist()
 len(query_list)
 
 
-# Function to search EuropePMC using entity of interest query and store results in a DataFrame
-#not implementing cursormark as all possible results isn't important
-def search_epmc(query, page_size=25):
-    full_search_query = f"{query} HAS_FT:Y AND OPEN_ACCESS:Y AND LICENSE:CC" #epmc allows you to search directly for full text articles and open access articles
+def search_epmc(query: str, page_size: int = 25) -> pd.DataFrame:
+    """
+    # Search EuropePMC using constructed entity query
+    # not implementing cursor-mark, fetching all possible results isn't important
+    """
+    full_search_query = f"{query} HAS_FT:Y AND OPEN_ACCESS:Y AND LICENSE:CC"  # search full text + open access articles
     base_url = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
     params = {
         "query": full_search_query,
@@ -73,8 +77,8 @@ def search_epmc(query, page_size=25):
         "pageSize": page_size
     }
     
-    response = requests.get(base_url, params=params)
-    data = response.json()
+    resp = requests.get(base_url, params=params)
+    data = resp.json()
     try:
         if "resultList" in data:
             article_list = [
@@ -88,22 +92,22 @@ def search_epmc(query, page_size=25):
             article_list = []
         return pd.DataFrame(article_list, columns=['PMCID', 'Title', 'PubType'])
 
-
     except requests.exceptions.RequestException as e:
-        print(f"Error loading results from EPMC. See error: {e}")
+        print(f"Error loading results from ePMC. See error: {e}")
         return pd.DataFrame(columns=['PMCID', 'Title', 'PubType'])
 
-#testing function with sample query and printing to terminal
-print("Displaying example search results for a sample query")
+
+# test with sample query, printing to terminal
+print("Example search results for a sample query:")
 print("*************************************")
 print(search_epmc(query_list[0]))
 
 
-# Search for all query and aggregate results into one DataFrame
+# Search for all queries and aggregate results into one DataFrame
 articles_df = pd.DataFrame()
  
 
-for query in tqdm(query_list, desc="Searching EPMC for Cell Line articles----->"):
+for query in tqdm(query_list, desc="Searching ePMC for Cell Line articles----->"):
     result_df = search_epmc(query)
     result_df['search_query'] = query
     articles_df = pd.concat([articles_df, result_df], ignore_index=True)
@@ -112,8 +116,10 @@ print(f"resulting dataframe when all query is applied has shape: {articles_df.sh
 logging.info(articles_df.head(10))
 
 
-# Separate function to fetch batches of articles from EuropePMC----> not used by default in script
-def fetch_epmc_batches(query, page_size=100, delay=1):
+def fetch_epmc_batches(query: str, page_size: int = 100, delay: int = 1):
+    """
+    Fetch batches of articles from EuropePMC. *not used by default in script*
+    """
     query = f"{query} HAS_FT:Y AND OPEN_ACCESS:Y"
     base_url = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
     cursor_mark = "*"  # Initial cursor for the first batch
@@ -137,16 +143,18 @@ def fetch_epmc_batches(query, page_size=100, delay=1):
         # Check for the next cursorMark
         next_cursor_mark = data.get("nextCursorMark")
         if not next_cursor_mark or next_cursor_mark == cursor_mark:
-            break  # Exit loop if no more results or cursor hasn't advanced
+            break  # No more results or cursor hasn't advanced
 
         cursor_mark = next_cursor_mark
-        time.sleep(delay)  # Delay between requests to avoid overloading the API
+        time.sleep(delay)  # Avoid overloading API
 
-# Function to process all batches and return a DataFrame
-def search_epmc(query, page_size=25, delay=1):
+
+def search_epmc(query: str, page_size: int = 25, delay: int = 1) -> pd.DataFrame:
+    """
+    Process all request batches
+    """
     articles_list = []
 
-    # Fetch batches using the generator
     for batch in fetch_epmc_batches(query, page_size=page_size, delay=delay):
         for article in batch:
             title = article.get('title')
@@ -154,14 +162,12 @@ def search_epmc(query, page_size=25, delay=1):
             article_type = article.get("pubType")
             articles_list.append((pmcid, title, article_type))
 
-    # Create a DataFrame with the articles
-    df = pd.DataFrame(articles_list, columns=['PMCID', 'Title', 'PubType'])
-    return df
+    all_articles_df = pd.DataFrame(articles_list, columns=['PMCID', 'Title', 'PubType'])
+    return all_articles_df
 
 
-#check for missing values
-print(articles_df.isnull().sum())
-
+# check for missing values
+print(f'Count check for missing values: {str(articles_df.isnull().sum())}')
 
 # Check for missing values in the 'PMCID' column
 if articles_df['PMCID'].isnull().any():
@@ -180,15 +186,11 @@ else:
     print("No duplicate values detected in 'PMCID' column.")
 
 
-#check for retracted publications
+# check for retracted publications
 if (articles_df['PubType'] == 'retraction of publication').any():
-    #dropping retracted articles
+    # dropping retracted articles
     articles_df = articles_df.query("PubType!='retraction of publication'")
     logging.info(f"Data shape after dropping retracted articles: {articles_df.shape}")
-
-
-
-
 
 
 if args.format2extract == 'sent': 
@@ -209,9 +211,5 @@ elif args.format2extract == "par":
     logging.info(f"Data split in paragraphs has shape: {df.shape}")
 
 
-#save df to path
-
 print(f"Saving final dataframe to directory: {args.output_dir} ---> with name: {args.save_name}")
 df.to_csv(f"{os.path.join(args.output_dir, args.save_name)}.csv", index=False)
-
-

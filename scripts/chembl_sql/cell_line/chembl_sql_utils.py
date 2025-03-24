@@ -1,6 +1,6 @@
 import pandas as pd
 import sqlite3
-from typing import List, Optional
+from typing import List, Optional, Tuple
 import csv
 
 from IPython.core.display_functions import display
@@ -61,16 +61,22 @@ def clean_output_for_model(res_df: pd.DataFrame, count_length: int, path_to_dict
     print(f'Query completed, cleaned output exported to: {output}')
 
 
-def get_top_ten_and_papers(res_df: pd.DataFrame, col_name: str, sort_by: str):
+def get_range_col_and_papers(res_df: pd.DataFrame, col_name: str, sort_by: str, range: Tuple):
     """
-    Grab subsets of results df for each of the top 10 most-common mentions in a specified column
-    E.g. for the top 10 cell lines occuring in the results df, list each subset df
+    Grab subsets of results df for each of the 'x' positions, based on frequency, in a specified column
+    E.g. for the top 10 cell lines occurring in the results df, list each subset df. Range given would be [:10]
+         for the bottom 10, range given would be [-10:'end'], and so on
     """
     column_frequencies = res_df[col_name].value_counts()
-    top_ten = column_frequencies[:10]
-    for index_label in top_ten.index:
+    if range[1] == 'end':  # Starting from least frequent and ascending
+        freq_range = column_frequencies[range[0]:].sort_values(ascending=True)
+    else:
+        freq_range = column_frequencies[range[0]:range[1]].sort_values(ascending=False)
+    print(freq_range)
+
+    for index_label in freq_range.index:
         df_subset = res_df[res_df[col_name] == index_label]
-        df_subset = df_subset.sort_values(by=[sort_by], axis=0, ascending=False)
+        df_subset = df_subset.sort_values(by=[sort_by], ascending=True)
         with pd.option_context('display.max_rows', 10, 'display.max_columns', None):
             display(df_subset)
 

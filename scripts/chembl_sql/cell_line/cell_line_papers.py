@@ -6,7 +6,7 @@ for the selection of suitable literature for model training
 """
 
 # Version of SQLite ChEMBL database queried
-db_path = 'chembl_34.db'
+db_path = '/Users/withers/Documents/DataDownloads/ChEMBL/chembl_34_sqlite/chembl_34.db'
 
 """
     Unique sets of cell line <--> paper, linked to cell line via docs table
@@ -55,6 +55,6 @@ if __name__ == "__main__":
 
     # for given range of cell lines in results sorted by frequency, grab papers referencing them
     # Bottom 10 rows
-    get_range_col_and_papers(res_df=res_df, col_name='assay_cell_type', sort_by='year', range=(-10, 'end'))
+    # get_range_col_and_papers(res_df=res_df, col_name='assay_cell_type', sort_by='year', range=(-10, 'end'))
     # Top 10 rows
-    # get_range_col_and_papers(res_df=res_df, col_name='assay_cell_type', sort_by='year', range=(0, 10))
+    get_range_col_and_papers(res_df=res_df, col_name='assay_cell_type', sort_by='year', range=(0, 10))

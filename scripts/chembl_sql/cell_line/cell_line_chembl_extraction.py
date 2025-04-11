@@ -47,5 +47,5 @@ if __name__ == "__main__":
     headers - Headers for save file
     """
 
-    res_df = sqlite_query(db_version=db_version, query=query,
+    res_df = sqlite_query(db_version=db_version, query=query, path_to_dictionary='',
                           outfile=outfile, save_cleaned=False, headers=headers)

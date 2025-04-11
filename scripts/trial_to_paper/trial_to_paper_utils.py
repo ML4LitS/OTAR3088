@@ -2,13 +2,13 @@ import pandas as pd
 import psycopg
 import requests
 from typing import List, Tuple
-from variables import headers, password, query, user
+from variables import headers, password, user
 
 pd.options.display.max_columns = None
 pd.options.display.max_rows = 10
 
 
-def aact_query() -> pd.DataFrame:
+def aact_query(query:str) -> pd.DataFrame:
     """
     Postgres query to AACT clinical trials DB, returning details of AEs reported for a given clinical trial
     """
@@ -20,12 +20,12 @@ def aact_query() -> pd.DataFrame:
     cursor = conn.cursor()
 
     cursor.execute(query)
-    response_df = pd.DataFrame(cursor.fetchall(), columns=headers)
+    response_df = pd.DataFrame(cursor.fetchall())
     return response_df
 
 
-def aact_data_gather(nct_id: str) -> Tuple[str, List, List, List, List]:
-    response_df = aact_query()
+def aact_data_gather(nct_id: str, query: str) -> Tuple[str, List, List, List, List]:
+    response_df = aact_query(query)
     if not response_df.empty:
         severe_aes_filter = response_df[response_df["event_type"] == "serious"]
         severe_aes = get_set_from_col(full_df=severe_aes_filter, col_name="adverse_event")
@@ -35,6 +35,7 @@ def aact_data_gather(nct_id: str) -> Tuple[str, List, List, List, List]:
 
         # nct_id = response_df["nct_id"][0]
         study_title = response_df["study_title"][0]
+        print(study_title)
         aes = get_set_from_col(full_df=response_df, col_name="adverse_event")
         patient_groups = get_set_from_col(full_df=response_df, col_name="ctgov_group_code")
         # group_types = get_set_from_col(full_df=response_df, col_name="event_type") ## Types = ['serious', 'other']

@@ -3,27 +3,26 @@ import json
 import re
 import pandas as pd
 import spacy
-from typing import Dict
+from typing import List
 
 nlp = spacy.load("en_core_web_sm")
 
-def ls_dictionary_format(path_to_dict: str, path_to_output: str) -> pd.DataFrame:
+def ls_dictionary_format(path_to_dict: str) -> pd.DataFrame:
     """
-    :return: Refactored dictionary pd.DataFrame in LabelStudio format
-    Writing tsv to file of cleaned dictionary
+    TODO - Aware this function does not consider alternative dictionary formats for now
+    Input dictionary is cleaned to comply with Label studio requirements
     """
-    # TODO - Ensure there are no other input dictionary formats to account for re. column names
     df = pd.read_csv(path_to_dict, sep="\t")
     df.columns = ["label", "id", "term"]
     df_clean = pd.concat([df["term"], df["label"]], axis=1, ignore_index=True)
     df_clean.columns = ["term", "label"]
 
     # Drop short terms in dictionary due to ambiguity
+    # TODO - Q? Should terms like 'cell' be dropped also, or are they helpful markers for review?
     df_clean['length'] = df_clean.apply(lambda x: len(x['term']) > 2, axis=1)
     df_clean = df_clean[df_clean['length'] == True]
-    df_clean.drop(columns=['length'])
+    df_clean = df_clean.drop(columns=['length'])
 
-    df_clean.to_csv(path_to_output, sep="\t", index=False)
     return df_clean
 
 def smart_boundary_regex(term: str) -> re.Pattern:
@@ -67,7 +66,7 @@ def ls_formatter(dict_file: str, texts_file: str, output_json: str):
     for text in texts:
         doc = nlp(text)
         tokens = [token for token in doc]
-        # Print to display lemmatizations
+        ## Print next line to display lemmatizations
         # lemmatized_text = ' '.join([token.lemma_.lower() for token in tokens])
         results = []
 
@@ -100,18 +99,35 @@ def ls_formatter(dict_file: str, texts_file: str, output_json: str):
         }
         annotations.append(res)
 
-    # --- Save output ---
+    # Save annotations output
     with open(output_json, 'w', encoding='utf-8') as f:
         json.dump(annotations, f, indent=2, ensure_ascii=False)
 
-    print(f"Saved {len(annotations)} dictionary annotation(s) to {output_json}")
+    hits = len(annotations[0]['annotations'][0]['result'])
+    print(f"Saved {hits} dictionary annotation(s) to {output_json}")
+
+def collate_dictionaries(dictionaries: List, path_to_output: str):
+    """
+    Collating provided dictionaries to one master df for annotation
+    :param dictionaries: paths to input tsv
+    :param path_to_output
+    """
+    master_df = pd.DataFrame(columns=['term', 'label'])
+    for dictionary in dictionaries:
+        df_clean = ls_dictionary_format(path_to_dict=dictionary)
+        master_df = pd.concat([master_df, df_clean])
+    master_df.to_csv(path_to_output, sep="\t", index=False)
 
 if __name__ == "__main__":
-    # Aggregate input dictionaries, so multiple are annotated in one run
-    # Input dictionaries sourced from ChEMBL
+    # Input dictionaries sourced from ChEMBL and BRENDA
     cell = "./cell_df.tsv"
+    bcell = "./brendacell_df.tsv"
     tissue = "./tissue_df.tsv"
-    master_df = pd.DataFrame
-    for dictionary in [cell, tissue]:
-        df_clean = ls_dictionary_format(path_to_dict="./cell_df.tsv", path_to_output="./output/labelstudio/cell_ls_dict.tsv")
-    ls_formatter(dict_file="./output/labelstudio/cell_ls_dict.tsv", texts_file="./output/labelstudio/sample.txt", output_json="./output/labelstudio/test.json")
+    btissue = "./brendatissue_df.tsv"
+
+    master_path = './output/labelstudio/master_dictionary.tsv'
+
+    # Aggregate input dictionaries, so multiple are annotated in one run
+    collate_dictionaries(dictionaries=[cell, tissue, bcell, btissue], path_to_output=master_path)
+    # Annotate texts using collated dictionaries, write to file in Label studio format
+    ls_formatter(dict_file=master_path, texts_file="./output/labelstudio/sample.txt", output_json="./output/labelstudio/test.json")

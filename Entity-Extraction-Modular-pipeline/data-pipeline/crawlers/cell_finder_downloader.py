@@ -13,9 +13,6 @@ from pathlib import Path
 
 
 
-print(f"This is the sys path: {sys.path}")
-
-
 
 
 BASE_URL = "https://www.informatik.hu-berlin.de/de/forschung/gebiete/wbi/resources/cellfinder/"
@@ -41,10 +38,7 @@ def download_and_extract(data_links:List[str], output_dir:str, url:str=BASE_URL)
 
  In this script, we extract by default only the first file.
  The function may be used to extract any other formats or all if of interest.
- Example usage: for single link: link = [get_archive(url)[0]]
- download_and_extract(link, path)
- For all files: links = get_archive(url)
- download_and_extract(links, path)
+ See Argument parser index --all for more usage information
 
     """
     #create file save directory if it doesn't already exits

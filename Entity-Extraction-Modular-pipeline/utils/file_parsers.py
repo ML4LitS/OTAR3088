@@ -8,6 +8,8 @@ import logging
 # The function will take care of reading the files and their respective annotations using the file id name 
 
 
+##script TO-DO : Include function doc strings 
+
 
 def load_brat(input_path: Union[str, Path]):
     input_path = Path(input_path)
@@ -77,3 +79,37 @@ def _read_brat(txt_path: Path, ann_path: Optional[str] = None):
     except Exception as e:
         logging.error(f"Error reading {txt_path.name}: {e}")
         return None, []
+    
+
+
+
+
+##load conll file types---> files are tab separated in the format : token   token_label
+
+def load_conll(file_path:Path) -> List[List[str], List[str]]:
+
+        all_tokens, all_labels = [], []
+        with open(file_path, "r", encoding="utf-8") as f:
+            sentence_tokens, sentence_labels = [], []
+            for line in f:
+                line = line.strip() #removes whitespace
+                if not line: #empty/blank lines marks the end of a sentence
+                    if sentence_labels:
+                        all_tokens.append(sentence_tokens)
+                        all_labels.append(sentence_labels)
+                        sentence_tokens, sentence_labels = [], []
+                else:
+                    parts = re.split('\s+', line)
+                    if len(parts)>=2:
+                        all_tokens.append[parts[0]] #first part represents tokens
+                        all_labels.append[parts[-1]] #last part represents tags 
+
+            if sentence_labels: #appending the last sentence in the file after loppping through
+                all_tokens.append(sentence_tokens) #
+                all_labels.append(sentence_labels)
+            else:
+                raise ValueError(f"Line format error: '{line}'")
+            
+
+
+        return all_tokens, all_labels

@@ -80,7 +80,6 @@ def search_epmc(query, page_size=25):
             article_list = [
                 (
                     article.get("pmcid", None),
-                    article.get("pmcid", None),
                     article.get("title", None),
                     article.get("pubType", None)
                 ) for article in data["resultList"]["result"]

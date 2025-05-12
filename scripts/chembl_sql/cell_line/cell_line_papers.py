@@ -48,13 +48,23 @@ if __name__ == "__main__":
          headers - Headers for save file
     (2.) res_df - results of SQL query to ChEMBL
          col_name - column to collect frequencies and subsequent chosen range from
-         Aim here to identify 10 suitable source papers to use as input for model training
+         Aim here to identify x suitable source papers to use as input for model training
     """
     res_df = sqlite_query(db_version=db_path, query=query, outfile=outfile_cleaned,
                           save_cleaned=False, path_to_dictionary='', headers=headers)
 
     # for given range of cell lines in results sorted by frequency, grab papers referencing them
-    # Bottom 10 rows
-    # get_range_col_and_papers(res_df=res_df, col_name='assay_cell_type', sort_by='year', range=(-10, 'end'))
-    # Top 10 rows
-    get_range_col_and_papers(res_df=res_df, col_name='assay_cell_type', sort_by='year', range=(0, 10))
+    # Bottom x rows
+    bottom_df, bottom_pmids = get_range_col_and_papers(res_df=res_df, col_name='assay_cell_type', sort_by='year', range=(-100, 'end'))
+    bottom_df.to_csv("./test.csv")
+    # Top x rows
+    top_df, top_pmids = get_range_col_and_papers(res_df=res_df, col_name='assay_cell_type', sort_by='year', range=(0, 100))
+    print(top_pmids)
+    top_df.to_csv("./top.csv")
+    top_pmids.extend(bottom_pmids)
+
+    # Clean list of PMIDs to convert to PMCIDs for full text annotations
+    searchable_pmids = list(set(top_pmids))
+    with open("searchable_pmids", "w+") as f:
+        [f.write(str(x)+"\n") for x in searchable_pmids]
+    f.close()

@@ -18,7 +18,10 @@ def write_csv(outfile: str, headers: List, rows: List):
         # Write data rows
         csvwriter.writerows(rows)
         print(f'Query completed, output exported to: {outfile}')
+    csvfile.close()
 
+    print(outfile.head())
+    with open("./grouped_papers.csv", 'w', newline='', encoding='utf-8') as f:
 
 def map_to_dictionary(input_df: pd.DataFrame, path_to_dictionary: str) -> pd.DataFrame:
     """
@@ -61,24 +64,27 @@ def clean_output_for_model(res_df: pd.DataFrame, count_length: int, path_to_dict
     print(f'Query completed, cleaned output exported to: {output}')
 
 
-def get_range_col_and_papers(res_df: pd.DataFrame, col_name: str, sort_by: str, range: Tuple):
+def get_range_col_and_papers(res_df: pd.DataFrame, col_name: str, sort_by: str, range: Tuple) -> Tuple[pd.DataFrame, List]:
     """
     Grab subsets of results df for each of the 'x' positions, based on frequency, in a specified column
     E.g. for the top 10 cell lines occurring in the results df, list each subset df. Range given would be [:10]
          for the bottom 10, range given would be [-10:'end'], and so on
     """
+    pmids = []
     column_frequencies = res_df[col_name].value_counts()
+    print(column_frequencies)
     if range[1] == 'end':  # Starting from least frequent and ascending
-        freq_range = column_frequencies[range[0]:].sort_values(ascending=True)
+        freq_range = column_frequencies[range[0]: ].sort_values(ascending=True)
     else:
         freq_range = column_frequencies[range[0]:range[1]].sort_values(ascending=False)
-    print(freq_range)
 
     for index_label in freq_range.index:
         df_subset = res_df[res_df[col_name] == index_label]
         df_subset = df_subset.sort_values(by=[sort_by], ascending=True)
-        with pd.option_context('display.max_rows', 10, 'display.max_columns', None):
-            display(df_subset)
+        pmids.append(df_subset['pmid'].iloc[0])
+        # with pd.option_context('display.max_rows', 10, 'display.max_columns', None):
+        #     display(df_subset)
+    return df_subset, pmids
 
 
 def sqlite_query(db_version: str, query: str, outfile: Optional[str], save_cleaned: Optional[bool],

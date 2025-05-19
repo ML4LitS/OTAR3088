@@ -4,8 +4,6 @@ import functools
 import tarfile
 from pathlib import Path
 from typing import Optional
-import spacy
-import scispacy
 import re
 
 
@@ -71,32 +69,3 @@ def clean_text(text:str) -> str:
     text = re.sub(r"\s+", " ", text).strip()
     
     return text
-
-
-
-
-def tokenize_with_offsets(text: str, nlp:scispacy):
-    doc = nlp(text)
-    sentences = []
-    for sent in doc.sents:
-        sentence_tokens = []
-        for token in sent:
-            sentence_tokens.append({
-                "text": token.text,
-                "start": token.idx,
-                "end": token.idx + len(token.text)
-            })
-        sentences.append(sentence_tokens)
-    return sentences
-
-
-def label_tokens_with_iob(sentences, entities):
-    for sent in sentences:
-        for token in sent:
-            token["label"] = "O"  # default tag
-            for ent in entities:
-                if ent["start"] <= token["start"] < ent["end"]:
-                    prefix = "B-" if token["start"] == ent["start"] else "I-"
-                    token["label"] = f"{prefix}{ent['label']}"
-                    break
-    return sentences

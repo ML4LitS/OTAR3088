@@ -3,8 +3,15 @@ from requests.exceptions import HTTPError, RequestException
 import functools
 import tarfile
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 import re
+import sys
+import random
+import torch
+from datasets import Dataset, DatasetDict
+import numpy as np
+import pandas as pd
+
 
 
 ##missing typ int and docstrings for some func
@@ -69,3 +76,47 @@ def clean_text(text:str) -> str:
     text = re.sub(r"\s+", " ", text).strip()
     
     return text
+
+
+def push_to_hub(
+    dataset: Union[Dataset, DatasetDict],
+    repo_name: str,
+    private_repo: bool = False,
+    token: str = None,
+    split_name: str = None,
+):
+    pass
+
+
+
+
+def set_seed(seed: int):
+    """Ensure reproducibility across Python, NumPy, and PyTorch"""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+
+
+# def parallel_process(df, func):
+#     data = [row for _,row in df.iterrows()]
+    
+
+#     # Initialize multiprocessing pool
+#     with Pool(cpu_count()) as pool:
+#         results = list(tqdm(pool.imap(func, data), total=len(data), desc="Processing rows"))
+
+#     # Convert back to DataFrame
+#     return pd.DataFrame(results)
+
+
+def create_output_dir(*, base_path:str, model_name:str):
+
+    output_dir = Path(base_path) / "model_outputs" / model_name
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    return output_dir

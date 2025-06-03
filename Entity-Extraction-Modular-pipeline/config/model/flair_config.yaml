@@ -1,0 +1,89 @@
+
+# config/model/flair_config.yaml
+
+name: flair
+
+embeddings:
+  model: "xlm-roberta-large"
+  fine_tune: true
+  layers: "-1"
+  layer_mean: true
+  subtoken_pooling: "first"  # options: first, last, first_last, mean
+  cls_pooling: "cls"         # options: cls, max, mean
+  is_token_embedding: true
+  is_document_embedding: true
+  allow_long_sentences: true
+  use_context: false         # can be bool or int
+  respect_document_boundaries: true
+  context_dropout: 0.5
+  force_max_length: false
+  use_context_separator: false
+  transformers_tokenizer_kwargs: {}
+  transformers_config_kwargs: {}
+  transformers_model_kwargs: {}
+  peft_config: null
+  peft_gradient_checkpointing_kwargs: {}
+
+sequence_tagger:
+  tag_type: ${task_type}
+  use_rnn: false
+  rnn: null
+  rnn_type: "LSTM" #option LSTM, GRU
+  tag_format: "BIO" #option: BIO, BIOES
+  hidden_size: 512
+  rnn_layers: 1
+  bidirectional: false
+  use_crf: false
+  reproject_embeddings: false
+  dropout: 0.2
+  word_dropout: 0.05
+  locked_dropout: 0.5
+  train_initial_hidden_state: false
+  loss_weights: null
+  init_from_state_dict: false
+  allow_unk_predictions: false
+
+
+columns: 
+  0: "text"
+  1: ${task_type}
+
+corpus:
+  train_file: "train.txt"
+  dev_file: "dev.txt"
+  test_file: "test.txt"
+  data_folder: ${data.data_folder}  # interpolating value from default config
+
+fine_tune:
+  # base_path: ${..output_dir}
+  warmup_fraction: ${warmup_ratio}
+  learning_rate: ${lr}
+  decoder_learning_rate: null
+  mini_batch_chunk_size: null
+  mini_batch_size: ${batch_size}
+  eval_batch_size: ${eval_batch_size}
+  max_epochs: ${num_epochs}
+  train_with_dev: false
+  train_with_test: false
+  reduce_transformer_vocab: false
+  main_evaluation_metric: ["micro avg", "f1-score"] #The metric to optimize. Options:  [micro-average or macro-average F1-score,accuracy]
+  monitor_test: false
+  monitor_train_sample: 0.0
+  use_final_model_for_eval: true
+  gold_label_dictionary_for_eval: null
+  exclude_labels: null
+  sampler: null
+  shuffle: true
+  shuffle_first_epoch: true
+  embeddings_storage_mode: "none"
+  epoch: 0 #used for resuming training
+  save_final_model: true
+  save_optimizer_state: true
+  save_model_each_k_epochs: 0
+  create_file_logs: true
+  create_loss_file: true
+  write_weights: false
+  use_amp: True
+  multi_gpu: false
+  # plugins: ["wandb"] #other possible additions/options: ["tensorboard"]
+  attach_default_scheduler: true

@@ -1,0 +1,6 @@
+seed: 3408
+train_file: null
+val_file: null
+output_dir: "model-outputs/"
+num_epochs: 5
+batch_size: 32

@@ -1,0 +1,19 @@
+defaults:
+  - _self_
+  - model: flair_config
+  - data: cell-line-custom
+  - logging: logging
+
+
+
+
+task_type: "ner"
+seed: 3407
+num_epochs: 10
+batch_size: 16
+warmup_ratio: 0.1
+optimizer: "AdamW"
+eval_batch_size: 16
+lr: 2e-5
+
+

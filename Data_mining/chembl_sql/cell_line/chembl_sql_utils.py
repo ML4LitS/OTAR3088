@@ -20,8 +20,7 @@ def write_csv(outfile: str, headers: List, rows: List):
         print(f'Query completed, output exported to: {outfile}')
     csvfile.close()
 
-    print(outfile.head())
-    with open("./grouped_papers.csv", 'w', newline='', encoding='utf-8') as f:
+    # with open("./grouped_papers.csv", 'w', newline='', encoding='utf-8') as f:
 
 def map_to_dictionary(input_df: pd.DataFrame, path_to_dictionary: str) -> pd.DataFrame:
     """
@@ -72,7 +71,6 @@ def get_range_col_and_papers(res_df: pd.DataFrame, col_name: str, sort_by: str, 
     """
     pmids = []
     column_frequencies = res_df[col_name].value_counts()
-    print(column_frequencies)
     if range[1] == 'end':  # Starting from least frequent and ascending
         freq_range = column_frequencies[range[0]: ].sort_values(ascending=True)
     else:
@@ -82,8 +80,8 @@ def get_range_col_and_papers(res_df: pd.DataFrame, col_name: str, sort_by: str, 
         df_subset = res_df[res_df[col_name] == index_label]
         df_subset = df_subset.sort_values(by=[sort_by], ascending=True)
         pmids.append(df_subset['pmid'].iloc[0])
-        # with pd.option_context('display.max_rows', 10, 'display.max_columns', None):
-        #     display(df_subset)
+        with pd.option_context('display.max_rows', 10, 'display.max_columns', None):
+            display(df_subset)
     return df_subset, pmids
 
 

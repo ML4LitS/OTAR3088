@@ -120,3 +120,24 @@ def create_output_dir(*, base_path:str, model_name:str):
     output_dir.mkdir(parents=True, exist_ok=True)
 
     return output_dir
+
+def setup_loguru(config:Optional[DictConfig]):
+    """Setup loguru to a central directory if specified in hydra config or 
+    default to current directory(useful for inference only)
+    """
+    log_dir = Path(config.loguru.log_dir) if config and "loguru" in config else Path.cwd()
+    print(log_dir)
+    log_filename = config.loguru.log_filename if config and "loguru" in config else "run.log"
+
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = log_dir / log_filename
+
+    logger.remove(0)
+    logger.add(
+        log_path,
+        format="[<green>{time:YYYY-MM-DD HH:mm:ss}</green>] | <level>{level}</level> | <cyan>{message}</cyan>",
+        mode="w",
+
+    level=config.loguru.level
+    )
+    logger.success(f"Loguru initialised at: {log_path}")

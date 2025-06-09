@@ -1,10 +1,11 @@
 from email.mime import base
 from pipelines.model_pipelines import flair_pipeline, hf_pipeline
-from utils.helper_functions import create_output_dir, set_seed
+from utils.helper_functions import create_output_dir, set_seed, setup_loguru
 
 from omegaconf import DictConfig, OmegaConf
 import hydra
 import logging
+from loguru import logger
 
 from flair.trainers import ModelTrainer
 from flair.models import SequenceTagger
@@ -24,10 +25,7 @@ wandb_token = os.environ.get("WANDB_TOKEN")
 
 #script to do: 
 """
-1. set up logger
-2. complete hf pipeline
-3. harmonise hydra logging and central logging ----> for easy debugging
-
+1. complete hf pipeline
 
 """
 
@@ -35,6 +33,11 @@ wandb_token = os.environ.get("WANDB_TOKEN")
 def train_model(cfg: DictConfig):
     #login to wandb
     wandb.login(key=wandb_token)
+
+    #init loguru logger
+    setup_loguru(cfg.logging)
+
+    logger.info(f"Current reproductiblity seed set to {cfg.seed}")
 
     #set set for reproducibility
     set_seed(cfg.seed) 
@@ -52,13 +55,11 @@ def train_model(cfg: DictConfig):
 
     #init wandb run details and plain_config
     wandb_run = wandb.init(
-            project=cfg.logging.wandb.project,
-            # entity=cfg.logging.wandb.entity,
-            config=plain_cfg, 
-            tags=cfg.logging.wandb.tags,
-            # mode=cfg.logging.wandb.mode,
-            name=f"flair-{wandb.util.generate_id()}",  # custom run name
-        )
+            name=f"{model_name}-{wandb.util.generate_id()}",  # optional custom run name
+            config = plain_cfg,
+            **cfg.logging.wandb  
+    )
+
 
 
     if model_name == "flair":

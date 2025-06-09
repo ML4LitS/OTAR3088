@@ -1,8 +1,10 @@
 defaults:
   - _self_
+  - logging/hydra_config
+  - logging: other_loggers
   - model: flair_config
   - data: cell-line-custom
-  - logging: logging
+  
 
 
 

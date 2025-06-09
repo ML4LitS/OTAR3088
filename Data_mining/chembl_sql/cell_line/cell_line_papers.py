@@ -5,7 +5,7 @@ Investigating the use of cell lines referenced most frequently in the ChEMBL ass
 for the selection of suitable literature for model training
 """
 
-# Version of SQLite ChEMBL database queried
+# Local version of SQLite ChEMBL database queried
 db_path = '/Users/withers/Documents/DataDownloads/ChEMBL/chembl_34_sqlite/chembl_34.db'
 
 """
@@ -53,13 +53,16 @@ if __name__ == "__main__":
     res_df = sqlite_query(db_version=db_path, query=query, outfile=outfile_cleaned,
                           save_cleaned=False, path_to_dictionary='', headers=headers)
 
+    frequency_count = res_df['assay_cell_type'].value_counts().reset_index()
+    frequency_count.columns = ['assay_cell_type', 'frequency']
+    frequency_count.to_csv('./assay_cell_type_freq.csv')
+
     # for given range of cell lines in results sorted by frequency, grab papers referencing them
     # Bottom x rows
     bottom_df, bottom_pmids = get_range_col_and_papers(res_df=res_df, col_name='assay_cell_type', sort_by='year', range=(-100, 'end'))
-    bottom_df.to_csv("./test.csv")
+    bottom_df.to_csv("./bottom.csv")
     # Top x rows
     top_df, top_pmids = get_range_col_and_papers(res_df=res_df, col_name='assay_cell_type', sort_by='year', range=(0, 100))
-    print(top_pmids)
     top_df.to_csv("./top.csv")
     top_pmids.extend(bottom_pmids)
 

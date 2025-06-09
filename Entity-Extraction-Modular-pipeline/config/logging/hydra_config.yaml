@@ -1,0 +1,21 @@
+hydra:
+  run:
+    dir: logs/${hydra:runtime.choices.model}
+  job:
+    chdir: True
+  output_subdir: null
+
+  logging:
+    config:
+      version: 1
+      formatters:
+        simple:
+          format: "[%(asctime)s][%(levelname)s] %(message)s"
+      handlers:
+        file:
+          class: logging.FileHandler
+          formatter: simple
+          filename: logs/${hydra:runtime.choices.model}/hydra.log
+      root:
+        handlers: [file]
+        level: DEBUG

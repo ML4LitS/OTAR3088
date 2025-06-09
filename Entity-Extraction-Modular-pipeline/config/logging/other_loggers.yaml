@@ -1,0 +1,16 @@
+# config/logging/other-loggers.yaml
+wandb:
+  project: "testing-otar"
+  dir: logs/${model.name}
+  # entity: "testing-otar"        
+  #mode: "online"               
+  tags: ["${model.name}", "${data.name}", "ner", "hydra"]
+  #name: ${model.name}
+
+
+loguru:
+  level: DEBUG
+  #rotation: 1 week
+  #retention: 2 months
+  log_dir: logs/${model.name}
+  log_filename: ${model.name}_${data.name}_model.log

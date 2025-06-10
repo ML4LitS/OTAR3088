@@ -1,8 +1,0 @@
-# config/logging.yaml
-wandb:
-  enable: true
-  project: "testing-otar"
-  # entity: "testing-otar"        
-  #mode: "online"               
-  log_model: true
-  tags: ["${model.name}", "ner", "hydra"]

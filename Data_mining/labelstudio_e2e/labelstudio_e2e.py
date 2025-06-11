@@ -14,7 +14,7 @@ from epmc_to_json import *
 nlp = spacy.load("en_core_web_sm")
 
 
-def search_epmc(query: str, page_size: int = 5) -> pd.DataFrame:
+def search_epmc(query: str, page_size: int = 10) -> pd.DataFrame:
     # Pulled from Amina's script
     full_search_query = f"{query} HAS_FULLTEXT:Y AND OPEN_ACCESS:Y AND LICENSE:CC"
     base_url = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
@@ -32,34 +32,48 @@ def search_epmc(query: str, page_size: int = 5) -> pd.DataFrame:
                 (
                     article.get("pmcid", None),
                     article.get("title", None),
-                    article.get("pubType", None)
+                    article.get("pubType", None),
+                    article.get("journalTitle", None)
                 ) for article in data["resultList"]["result"]
             ]
         else:
             article_list = []
-        return pd.DataFrame(article_list, columns=['PMCID', 'Title', 'PubType'])
+        return pd.DataFrame(article_list, columns=['PMCID', 'Title', 'PubType', 'Journal'])
 
     except requests.exceptions.RequestException as e:
         print(f"Error loading results from EPMC. See error: {e}")
-        return pd.DataFrame(columns=['PMCID', 'Title', 'PubType'])
+        return pd.DataFrame(columns=['PMCID', 'Title', 'PubType', 'Journal'])
 
 
 def search_pmcids(search_queries: List) -> List:
     '''
-    Run to grab all full texts for search terms passed
+    Run to grab all full texts for search terms passed in search_queries List
+    - PMCIDs are collected on the basis that a full text article from a journal unique to
+      the full list of articles returned is found
+    - This process is repeated until the conditions are met
     '''
     pmcids = []
+    journal_check = []
     # for search_query in ['HeLa', 'MIO-M1', 'synthetic tissue']:
     for search_query in search_queries:
+        compare = len(pmcids)
         print(f"Selecting one '{search_query}'-related paper for full-text extraction from ePMC")
         res_df = search_epmc(search_query)
         # Check articles returned are journal articles
         res_df = res_df[res_df['PubType'].str.contains('journal article')]
-        # Grab random PMCID from result df for full text extraction
-        selected_article = res_df.iloc[randrange(len(res_df) - 1)]
-        print(selected_article)
-        pmcids.append(selected_article['PMCID'])
-        print('\n')
+
+        while len(pmcids) <= compare:
+            # Grab random PMCID from result df for full text extraction
+            selected_article = res_df.iloc[randrange(len(res_df) - 1)]
+            if selected_article['Journal'] not in journal_check:
+                print(selected_article)
+                journal_check.append(selected_article['Journal'])
+                pmcids.append(selected_article['PMCID'])
+                print('\n')
+            else:
+                # We want to ensure a variety of journals are used, try again
+                continue
+    print('Completed search queries')
     return pmcids
 
 
@@ -315,7 +329,7 @@ if __name__ == "__main__":
 
     # Cell line names derived from ChEMBL assay descriptions
     # Grabbing the top and bottom 5 for variation in papers seen
-    cellline_freqs = '/Users/withers/GitProjects/OTAR3088/scripts/chembl_sql/cell_line/assay_cell_type_freq.csv'
+    cellline_freqs = '/Users/withers/GitProjects/OTAR3088/Data_mining/chembl_sql/cell_line/assay_cell_type_freq.csv'
     celllines = pd.read_csv(cellline_freqs)
     top = celllines['assay_cell_type'].to_list()[:5]
     bottom = celllines['assay_cell_type'].to_list()[-5:]

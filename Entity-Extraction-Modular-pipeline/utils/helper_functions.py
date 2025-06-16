@@ -114,12 +114,43 @@ def set_seed(seed: int):
 #     return pd.DataFrame(results)
 
 
-def create_output_dir(*, base_path:str, model_name:str):
+def create_output_dir(base_path:str, 
+                      name:str, 
+                      *, 
+                      is_model:bool=True, 
+                      is_datasets:bool=False,
+                      is_subfolder:bool=True):
+  """
+  Creates output directory for saving model outputs or datasets.
+  Parameters:
+      base_path (str): Base directory to create outputs in.
+      name (str): Name of the output directory (e.g model or dataset name/version).
+      is_model (bool): If True, creates under 'model_outputs' if a model type folder.
+      is_datasets (bool): If True, creates under 'Datasets' if dataset type folder.
+      include_subfolder (bool): Whether to create under a subfolder for a model/dataset type.
 
-    output_dir = Path(base_path) / "model_outputs" / model_name
+  Returns:
+      Path: Path object of the created directory.
+
+  """
+  if not is_model and not is_datasets:
+    raise ValueError("Either `is_model` or `is_datasets` must be True.")
+  if is_model and is_datasets:
+    raise ValueError("Only one of `is_model` or `is_datasets` can be True at a time.")
+  
+  subfolder = "model_outputs" if is_model else "Datasets" 
+  
+
+  try:
+    if not isinstance(base_path, Path):
+      raise ValueError("base_path must be a valid str or path")
+    output_dir = Path(base_path) / subfolder / name if is_subfolder else Path(base_path) / name
     output_dir.mkdir(parents=True, exist_ok=True)
-
-    return output_dir
+    
+  except Exception as e:
+    raise RuntimeError(f"Failed to create output directory at {output_dir}") from e
+  print(f"Output directory created at {output_dir}")
+  return output_dir
 
 def setup_loguru(config:Optional[DictConfig]):
     """Setup loguru to a central directory if specified in hydra config or 

@@ -119,9 +119,9 @@ def _process_split_brat(file_ids: List[str], input_dir: Path, output_dir: Path, 
         if labeled_sentences:
             write_to_conll(labeled_sentences, output_dir, split_name)
 
-def data_splitter_brat(path: str, train_ratio: float = 0.6, seed: int = 42) -> Dict[str, List[str]]:
+def data_splitter_brat(path: str, train_ratio: float = 0.7, seed: int = 42) -> Dict[str, List[str]]:
     path = Path(path)
-    all_files = list(path.glob("*.txt"))
+    all_files = sorted(path.glob("*.txt"))
     random.seed(seed)
     random.shuffle(all_files)
     base_filenames = [f.stem for f in all_files]
@@ -130,10 +130,14 @@ def data_splitter_brat(path: str, train_ratio: float = 0.6, seed: int = 42) -> D
     train_size = int(total_files * train_ratio)
     val_test_size = (total_files - train_size) // 2
 
+    train_files = base_filenames[:train_size]
+    val_files = base_filenames[train_size:train_size + val_test_size]
+    test_files = base_filenames[train_size + val_test_size:]
+
     return {
-        "train": base_filenames[:train_size],
-        "val": base_filenames[train_size:train_size + val_test_size],
-        "test": base_filenames[train_size + val_test_size:]
+        "train": train_files,
+        "val": val_files ,
+        "test": test_files
     }
 
 def process_dataset_brat(split_dict: Dict[str, List[str]], input_dir: Union[str, Path], output_dir: Union[str, Path]):

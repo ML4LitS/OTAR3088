@@ -1,0 +1,26 @@
+#!/bin/bash
+
+
+
+#SBATCH --time=24:00:00   # walltime
+#SBATCH --ntasks=1   # number of tasks
+#SBATCH --gpus=a100:1   # type of gpu plus number(if multigpu)
+#SBATCH --nodes=1   # number of nodes
+#SBATCH --mem=100G   # memory required per node
+#SBATCH -J "example_job"   # job name
+#SBATCH -e "path/to/folder/job_name.err" #path or name to save error outputs to 
+#SBATCH --mail-user=user@domain.com  # email address
+#SBATCH --mail-type=BEGIN #optional
+#SBATCH --mail-type=END #optional
+#SBATCH --mail-type=FAIL #optional
+
+
+
+#activate custom virtual environment
+source /path/to/custom/python_env
+
+# Execute Python script
+python /path/to/folder/python_script.py
+
+# Deactivate the virtual environment
+deactivate

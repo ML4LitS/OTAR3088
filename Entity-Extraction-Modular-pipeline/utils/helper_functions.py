@@ -8,10 +8,10 @@ import re
 import sys
 import random
 import torch
-from datasets import Dataset, DatasetDict
+from datasets import Dataset, DatasetDict, load_metric
 import numpy as np
 import pandas as pd
-
+from omegaconf import DictConfig
 
 
 ##missing typ int and docstrings for some func
@@ -120,6 +120,7 @@ def create_output_dir(base_path:str,
                       is_model:bool=True, 
                       is_datasets:bool=False,
                       is_subfolder:bool=True):
+  
   """
   Creates output directory for saving model outputs or datasets.
   Parameters:
@@ -142,9 +143,12 @@ def create_output_dir(base_path:str,
   
 
   try:
-    if not isinstance(base_path, Path):
+    base_path = Path(base_path)
+  except TypeError:
       raise ValueError("base_path must be a valid str or path")
-    output_dir = Path(base_path) / subfolder / name if is_subfolder else Path(base_path) / name
+  
+  try:
+    output_dir = base_path / subfolder / name if is_subfolder else base_path / name
     output_dir.mkdir(parents=True, exist_ok=True)
     
   except Exception as e:
@@ -172,3 +176,25 @@ def setup_loguru(config:Optional[DictConfig]):
     level=config.loguru.level
     )
     logger.success(f"Loguru initialised at: {log_path}")
+
+
+
+
+def prepare_metrics_hf(label_list):
+  metric = load_metric("seqeval")
+  def compute_metrics(eval_preds):
+    logits, labels = eval_preds
+    predictions = np.argmax(logits, axis=2)
+    true_labels = [[label_list[l] for l in label if l != -100] for label in labels]
+    true_predictions = [
+        [label_list[p] for (p, l) in zip(prediction, label) if l != -100]
+        for prediction, label in zip(predictions, labels)
+    ]
+    results = metric.compute(predictions=true_predictions, references=true_labels)
+    return {
+        "precision": results["overall_precision"],
+        "recall": results["overall_recall"],
+        "f1": results["overall_f1"],
+        "accuracy": results["overall_accuracy"],
+    }
+  return compute_metrics

@@ -1,0 +1,37 @@
+  # Model & Tokenizer
+  
+name: "hf" 
+model_name_or_path: "bioformers/bioformer-16L" 
+
+# Training hyperparameters
+args:
+  learning_rate: ${lr}
+  per_device_train_batch_size: ${batch_size}
+  per_device_eval_batch_size: ${eval_batch_size}
+  num_train_epochs: ${num_epochs}
+  weight_decay: 0.01
+  warmup_steps: 500
+  lr_scheduler_type: linear
+
+  # Logging and evaluation
+  # logging_steps: 100
+  logging_strategy: "epoch"
+  eval_strategy: "epoch"
+  save_strategy: "epoch"
+  save_total_limit: 2
+  load_best_model_at_end: true
+  metric_for_best_model: "eval_f1"
+  group_by_length: true
+  gradient_accumulation_steps: 4
+
+  # Optional params 
+  fp16: true #mixed precision for faster training on GPU
+  report_to: "wandb"  # options["wandb", "tensorboard", etc].
+
+
+#dataset
+text_col: "words"
+label_col: "labels"
+
+
+

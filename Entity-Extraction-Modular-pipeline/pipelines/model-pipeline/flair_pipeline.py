@@ -3,18 +3,24 @@
 
 from typing import List, Union, Dict, Tuple
 import logging
+from loguru import logger
 
 from omegaconf import DictConfig
 
+
+#flair
 from flair.data import Corpus, Dictionary
 from flair.datasets import ColumnCorpus
 
 from flair.embeddings import TransformerWordEmbeddings
 from flair.models import SequenceTagger
+from flair.trainers import ModelTrainer
+
+from flair.trainers.plugins.loggers.wandb import WandbLogger
 
 
+# from zenml import step 
 
-from zenml import step 
 
 import utils
 
@@ -61,7 +67,6 @@ def create_label_dict_corpus(label_type: str,
         test_file=test_file
     )
     label_dict = corpus.make_label_dictionary(label_type=label_type, add_unk=False)
-    # logging.info(f"Corpus label dictionary looks like this: {label_dict}")
     return label_dict, corpus
 
 
@@ -88,3 +93,40 @@ def get_embeddings(config: DictConfig):
     )
 
 
+
+def flair_trainer(cfg, wandb_run, run_artifact, wandb, output_dir):
+    
+    # Init custom flair wandb patch and apply to Flair WandbLogger plugin
+    WandbLogger.attach_to = patched_attach_to
+
+    wb_plugin = WandbLogger(wandb=wandb, emit_alerts=True)
+
+    label_dict, corpus = create_label_dict_corpus(
+        label_type=cfg.model.columns[1],
+        target_column=cfg.model.columns[0],
+        data_folder=cfg.data.data_folder,
+        train_file=cfg.model.corpus.train_file,
+        dev_file=cfg.model.corpus.dev_file,
+        test_file=cfg.model.corpus.test_file,
+    )
+
+    wandb_run.log({"Flair label dict": str(label_dict)})
+    logger.info(f"Flair label dict: {str(label_dict)}")
+
+    logger.info(f"Initialising embeddings")
+    embeddings = get_embeddings(cfg.model.embeddings)
+    logger.info(f"Embeddings: {embeddings}")
+
+    tagger = SequenceTagger(
+        embeddings=embeddings,
+        tag_dictionary=label_dict,
+        **cfg.model.sequence_tagger
+    )
+    logger.info(f"Initialising flair trainer class")
+    trainer = ModelTrainer(tagger, corpus)
+    logger.info(f"Starting flair model training...")
+    trainer.fine_tune(base_path=output_dir, plugins=[wb_plugin], **cfg.model.fine_tune)
+
+    wandb_run.log_artifact(run_artifact)
+    wandb_run.log({"Run Test results": trainer.test_results.detailed_results})
+    logger.success(f"Flair model training completed. Checkpoint saved in {output_dir}")

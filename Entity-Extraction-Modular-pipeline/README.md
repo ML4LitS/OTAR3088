@@ -205,17 +205,16 @@ Where:
 To set up and run the pipeline, follow these steps:
 
 ### Prerequisites
-- Git: For cloning the repository.
 
 - Python 3.8+: The pipeline is developed and tested with Python 3.8 and newer versions.
 
 - Virtual Environment Tool (Recommended for managing dependencies):
 
-   - pyenv
+   - [pyenv](https://github.com/pyenv/pyenv)
 
    - [uv](https://docs.astral.sh/uv/) (fast dependency manager)
 
-   - Alternatively: venv, virtualenv, or conda
+   - Alternatively: `venv`, `virtualenv`, or `conda`
 
 ### Steps
 1. **Clone the Repository:**

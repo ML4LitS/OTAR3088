@@ -21,6 +21,7 @@ This pipeline has been developed for the OTAR3088 project initiative focused on 
 
 
 
+
 ## Current Functionalities
 - **Integrated Model Support**: Integration for training and fine-tuning sequence labelling models using the [Flair](https://flairnlp.github.io/) framework and [huggingface transformers](https://huggingface.co/docs/transformers/en/index).
 
@@ -54,6 +55,8 @@ This pipeline has been developed for the OTAR3088 project initiative focused on 
 
 
 
+
+
 ## Information for flair model pipeline
 
 Flair models expect all input data (training, development/validation, and test sets) to be saved as individual `.txt` files within a designated folder. Each file should contain data in a format compatible with Flair's ColumnCorpus (typically CoNLL-like). Example folder structure is shown below: 
@@ -74,6 +77,8 @@ WordA    I-CellType
 WordB    O
 
 ```
+
+
 ## Information for HuggingFace pipeline
 
 The current huggingface finetunning wrapper supports loading data in `txt/conll` or `csv/tsv formats`. `csv/tsv` files are assumed to be in one of two structures:
@@ -160,6 +165,8 @@ Example training a huggingface model:
 python main.py model=hf data=my_flair_data model.model_name_or_path="xlm-roberta-base" lr=2e-3
 ```
 
+
+
 ## Experiment Tracking with Weight and Bias
 
 - The pipeline supports various logging and experiment tracking with Weights & Biases (WandB). Thus, the pipeline will automatically log training metrics, model checkpoints, and configuration details to your WandB project. Ensure your `WANDB_TOKEN` environment variable is set.
@@ -182,6 +189,8 @@ WANB_TOKEN = os.environ.get("WANDB_TOKEN") #make sure the name matches what it w
 
 
 - **Loguru** is also integrated for general-purpose application logging.
+
+  
 
 ## Preprocessing BRAT Data
 If your data is in BRAT format (i.e., `.txt` and `.ann` files), you can use the preprocessing pipeline script to convert them to machine learning–ready CoNLL format.
@@ -208,7 +217,9 @@ Where:
 - `convert_brat_to_conll.py`: Is the script that runs the conversion
 
 - `data=cell-finder`: Is the Hydra configuration that tells the script which dataset config to use (from configs/data/cell-finder.yaml)
-- and the output of the script is 
+
+
+
 
 ## Getting Started
 To set up and run the pipeline, follow these steps:
@@ -261,6 +272,8 @@ pip install -r requirements.txt
 
 3. Setup your Weight and Bias API key as shown in [Experiment Tracking with Weight and Bias](#experiment-tracking-with-weight-and-bias) section
 
+
+
 ##  Future Enhancements
 - Future iterations of this pipeline are planned to include:
 
@@ -271,6 +284,7 @@ pip install -r requirements.txt
 - Integration of additional evaluation metrics and visualisations.
 
 - Support for more model architectures and pre-trained models.
+
 
 
 ## Contributing

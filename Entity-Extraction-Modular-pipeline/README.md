@@ -250,7 +250,7 @@ Please see [uv](https://docs.astral.sh/uv/) for full instructions on setting up 
 
 - Using python's native virtual environment.
 ```bash
-  python -m venv .venv
+python -m venv .venv
 source .venv/bin/activate
 ```
 

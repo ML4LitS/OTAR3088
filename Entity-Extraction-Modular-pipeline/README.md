@@ -3,6 +3,19 @@
 This repository hosts an end-to-end modular and scalable entity extraction pipeline. The primary goal is to provide a flexible and modular framework that supports various data formats, and modeling frameworks.  It is built with a focus on plug-in modularity, version control, reproducibility, and easy evaluation.
 This pipeline has been developed for the OTAR3088 project initiative focused on automated knowledge extraction from scientific and biomedical literature. The core objective is to extract and classify named entities using supervised machine learning and natural language processing techniques. 
 
+## Table of Contents
+- [Project Information](#project-information)
+- [Current Functionalities](#current-functionalities)
+- [Information for flair model pipeline](#information-for-flair-model-pipeline)
+- [Information for Huggingface pipeline](#information-for-huggingface-pipeline)
+- [Information on Configuration Management with Hydra](#information-on-configuration-management-with-hydra)
+- [Experiment Tracking With Weight and Bias](#experiment-tracking-with-weight-and-bias)
+- [Preprocessing BRAT data](#preprocessing-brat-data)
+- [Getting started](#getting-started)
+- [Contributing](#contributing)
+- [License](#license)
+
+
 ## Project Information
 
 
@@ -41,12 +54,7 @@ This pipeline has been developed for the OTAR3088 project initiative focused on 
 
 
 
-
-
-
-
-
-## Information for flair model pipeline**
+## Information for flair model pipeline
 
 Flair models expect all input data (training, development/validation, and test sets) to be saved as individual `.txt` files within a designated folder. Each file should contain data in a format compatible with Flair's ColumnCorpus (typically CoNLL-like). Example folder structure is shown below: 
 ```
@@ -66,7 +74,7 @@ WordA    I-CellType
 WordB    O
 
 ```
-## Information for Hugging Face pipeline
+## Information for HuggingFace pipeline
 
 The current huggingface finetunning wrapper supports loading data in `txt/conll` or `csv/tsv formats`. `csv/tsv` files are assumed to be in one of two structures:
 
@@ -152,9 +160,9 @@ Example training a huggingface model:
 python main.py model=hf data=my_flair_data model.model_name_or_path="xlm-roberta-base" lr=2e-3
 ```
 
-## Experiment Tracking Integration
+## Experiment Tracking with Weight and Bias
 
-- The pipeline supports various logging and experiment tracking tools, with a current emphasis on Weights & Biases (WandB). Thus, the pipeline will automatically log training metrics, model checkpoints, and configuration details to your WandB project. Ensure your `WANDB_TOKEN` environment variable is set.
+- The pipeline supports various logging and experiment tracking with Weights & Biases (WandB). Thus, the pipeline will automatically log training metrics, model checkpoints, and configuration details to your WandB project. Ensure your `WANDB_TOKEN` environment variable is set.
   To do this, you can add the following to a .env file:
 
 ``` env
@@ -200,6 +208,7 @@ Where:
 - `convert_brat_to_conll.py`: Is the script that runs the conversion
 
 - `data=cell-finder`: Is the Hydra configuration that tells the script which dataset config to use (from configs/data/cell-finder.yaml)
+- and the output of the script is 
 
 ## Getting Started
 To set up and run the pipeline, follow these steps:
@@ -226,4 +235,53 @@ git clone https://github.com/ML4LitS/OTAR3088.git
 cd Entity-Extraction-Modular-pipeline
 
 ```
-2. **Setup virtual env:** 
+2. **Setup virtual env:**
+ - Using [uv](https://docs.astral.sh/uv/) (Recommended for fast setup):
+For Linux/Mac
+```bash
+uv venv env_name #e.g uv venv ner-model
+source env_name/bin/activate  # or `source .venv/bin/activate` if using uv default venv without name. N.b this command is used for L
+```
+For Windows
+```bash
+source .venv/bin/activate.fish
+```
+Please see [uv](https://docs.astral.sh/uv/) for full instructions on setting up a virtual environment. 
+
+- Using python's native virtual environment.
+```bash
+  python -m venv .venv
+source .venv/bin/activate
+```
+
+Once the virtual environment is setup, install the `requirements.txt` file. 
+```bash
+pip install -r requirements.txt
+```
+
+3. Setup your Weight and Bias API key as shown in [Experiment Tracking with Weight and Bias](#experiment-tracking-with-weight-and-bias) section
+
+##  Future Enhancements
+- Future iterations of this pipeline are planned to include:
+
+- Direct data loading from the Hugging Face Hub.
+
+- Support for optional test sets for Hugging Face data.
+
+- Integration of additional evaluation metrics and visualisations.
+
+- Support for more model architectures and pre-trained models.
+
+
+## Contributing
+
+We welcome issues, feature requests, and pull requests. To contribute:
+
+- Fork the repo
+
+- Create a feature branch
+
+- Submit a pull request with detailed description
+
+
+## Licencing 

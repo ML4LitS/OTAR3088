@@ -240,7 +240,7 @@ cd Entity-Extraction-Modular-pipeline
 For Linux/Mac
 ```bash
 uv venv env_name #e.g uv venv ner-model
-source env_name/bin/activate  # or `source .venv/bin/activate` if using uv default venv without name. N.b this command is used for L
+source env_name/bin/activate  # or `source .venv/bin/activate` if using uv default venv without name.
 ```
 For Windows
 ```bash

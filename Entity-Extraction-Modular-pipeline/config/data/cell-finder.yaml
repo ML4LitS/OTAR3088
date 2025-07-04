@@ -1,9 +1,16 @@
 name: cell-finder
-data_folder: "Datasets/cell-finder/" #used for model trainining only
-seed: 42
-
-
-train_ratio: 0.6
-
 version_name: "cellfinder_conll_v1"
-input_dir: ???
+data_folder: "Datasets/${.version_name}" #used for model trainining only
+
+
+#data preprocessing
+seed: 42
+train_ratio: 0.6
+input_dir: Datasets/cell-finder-raw/cellfinder1_brat 
+
+
+#for hf
+file_format: "txt"
+train_file: "${.data_folder}/train.${.file_format}"
+test_file: "${.data_folder}/test.${.file_format}"
+val_file: "${.data_folder}/val.${.file_format}" 

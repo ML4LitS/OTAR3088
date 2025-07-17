@@ -1,3 +1,4 @@
+README.md
 setup.py
 Entity_Extraction_Modular_pipeline.egg-info/PKG-INFO
 Entity_Extraction_Modular_pipeline.egg-info/SOURCES.txt
@@ -8,9 +9,12 @@ pipelines/data-pipeline/__init__.py
 pipelines/data-pipeline/data-crawlers-downloaders/__init__.py
 pipelines/data-pipeline/data-crawlers-downloaders/cell_finder_downloader.py
 pipelines/data-pipeline/data-feature-extraction/__init__.py
+pipelines/data-pipeline/data-feature-extraction/brat_to_conll_converter.py
 pipelines/model-pipeline/__init__.py
+pipelines/model-pipeline/flair_pipeline.py
+pipelines/model-pipeline/hf_pipeline.py
 steps/__init__.py
-steps/preprocess.py
+steps/load_ner_dataset_hf.py
 steps/tokenize_preprocess.py
 utils/__init__.py
 utils/file_parsers.py

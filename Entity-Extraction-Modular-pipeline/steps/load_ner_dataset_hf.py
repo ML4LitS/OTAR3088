@@ -1,11 +1,9 @@
 import pandas as pd
 from typing import Tuple, List, Union
 
-from datasets import Dataset, DatasetDict
+from datasets import Dataset, DatasetDict, load_dataset
 
-from utils.file_parsers import read_conll
-
-
+# from utils.file_parsers import read_conll
 
 
 def load_ner_dataset(
@@ -16,12 +14,12 @@ def load_ner_dataset(
 
 ) -> Union[Dataset, DatasetDict]:
     """
-    Loads and converts different file formats to huggingface datasets. 
+    Loads and converts different file formats to huggingface datasets.
+    If already existing in hf, dataset can be loaded directly w.o. conversion
     file_path(str): Path/name of file to be load
-    file_type(str): file format. Options--> Conll, csv, tsv
+    file_type(str): file format. Options--> Conll, csv, tsv, Dataset
     text_col: name to be used for the column containing list of tokens/words
     label_col(str): name to be used for the column containing list of ner tags/labels
-    
 
     Returns: 
         Dataset | DatasetDict: Huggingface dataset dict object
@@ -30,6 +28,9 @@ def load_ner_dataset(
 
     if file_type in ["conll", "txt"]:
         return _dataset_from_conll(file_path, text_col, label_col)
+    
+    if file_type in ["hf"]:
+        return __dataset__from_hf(file_path, text_col, label_col)
     
     elif file_type in ["csv", "tsv"]:
         return __dataset__from_csv_tsv(file_path, text_col, label_col, file_type)
@@ -86,7 +87,21 @@ def __dataset__from_csv_tsv(file_path: str, text_col: str, label_col: str, file_
 
     return Dataset.from_pandas(df)
 
+# def __dataset__from_hf(file_path: str, text_col: str, label_col: str):
+def __dataset__from_hf(file_path: str, text_col: str,  label_col: str) -> DatasetDict:
+    ''' 
+    Reminder: A hf dataset loads by default all the data into the "train" split,
+    or checks for mentions or split names in the data files names
+    (I.e. "train", "test" and "validation")
+    '''
+    return load_dataset(file_path)
 
+test = "OTAR3088/Cellfinder-cleaned_CoNNL2"
+d = __dataset__from_hf(test, 'tokens', 'ner_tags')
+print(type(d))
+train = d['train']
+text = train['tokens']
+label = train['ner_tags']
 
-
-    
+for i, j in list(zip(text[0][:50], label[0][:50])):
+    print(i, j)

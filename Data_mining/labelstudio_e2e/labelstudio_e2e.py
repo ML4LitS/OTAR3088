@@ -313,26 +313,26 @@ def write_ls_textfile(input_text: str, path_to_outfile: str):
 if __name__ == "__main__":
     # TODO - Add argparse for future usability
     # Input dictionaries sourced from ChEMBL and BRENDA
-    cell = "./cell_df.tsv"
-    bcell = "./brendacell_df.tsv"
-    tissue = "./tissue_df.tsv"
-    btissue = "./brendatissue_df.tsv"
+    cell = "Data_mining/labelstudio_e2e/cell_df.tsv"
+    bcell = "Data_mining/labelstudio_e2e/brendacell_df.tsv"
+    tissue = "Data_mining/labelstudio_e2e/tissue_df.tsv"
+    btissue = "Data_mining/labelstudio_e2e/brendatissue_df.tsv"
 
-    master_path = './output/labelstudio/master_dictionary.tsv'
+    master_path = 'Data_mining/labelstudio_e2e/output/labelstudio/master_dictionary.tsv'
 
     # Aggregate input dictionaries, so multiple are annotated in one run
     collate_dictionaries(dictionaries=[cell, tissue, bcell, btissue], path_to_output=master_path)
 
     # Annotate texts using collated dictionaries, write to file in Label studio format
-    ls_formatter(dict_file=master_path, texts_file="./output/labelstudio/sample.txt",
-                 output_json="./output/labelstudio/test.json", pmcid=None)
+    ls_formatter(dict_file=master_path, texts_file="Data_mining/labelstudio_e2e/output/labelstudio/sample.txt",
+                 output_json="Data_mining/labelstudio_e2e/output/labelstudio/test.json", pmcid=None)
 
     # Cell line names derived from ChEMBL assay descriptions
     # Grabbing the top and bottom 5 for variation in papers seen
     cellline_freqs = '/Users/withers/GitProjects/OTAR3088/Data_mining/chembl_sql/cell_line/assay_cell_type_freq.csv'
     celllines = pd.read_csv(cellline_freqs)
-    top = celllines['assay_cell_type'].to_list()[:5]
-    bottom = celllines['assay_cell_type'].to_list()[-5:]
+    top = celllines['assay_cell_type'].to_list()[5:10]
+    bottom = celllines['assay_cell_type'].to_list()[-10:-5]
     search_queries = top + bottom + ['synthetic tissue']
 
     pmcids = search_pmcids(search_queries=search_queries)
@@ -340,8 +340,8 @@ if __name__ == "__main__":
 
     print('\nWriting annotations to file...\n')
     for k, v in tqdm(cleaned_full_texts.items()):
-        annotated_path = f'./output/labelstudio/{k}_annotation.txt'
-        ls_json_path = f'./output/labelstudio/{k}_annotated.json'
+        annotated_path = f'Data_mining/labelstudio_e2e/output/labelstudio/data_generation/{k}_annotation.txt'
+        ls_json_path = f'Data_mining/labelstudio_e2e/output/labelstudio/data_generation/{k}_annotated.json'
         write_ls_textfile(input_text=v, path_to_outfile=annotated_path)
         ls_formatter(dict_file=master_path,
                      texts_file=annotated_path,

@@ -1,8 +1,8 @@
 # config/logging/other-loggers.yaml
 wandb:
-  project: "testing-otar"
+  project: "otar-3088"
   dir: logs/${model.name}
-  # entity: "testing-otar"        
+  entity: "ebi_literature"        
   #mode: "online"               
   tags: ["${model.name}", "${data.name}", "ner", "hydra"]
   #name: ${model.name}

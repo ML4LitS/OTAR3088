@@ -10,7 +10,7 @@ from typing import Optional
 def download_hf_dataset_file(
     repo_id: str,
     filename: str,
-    repo_type: str = "dataset", #Set to "dataset" or "space" if downloading from a dataset or space, None or "model" if downloading from a model. Default is None
+    repo_type: str = "dataset", #Set to "dataset" or "space" if downloading from a dataset or space, None or "model" if downloading from a model. Default is dataset
     local_dir: str = ".",
     revision: str = "main",
     token: Optional[str] = None
@@ -19,7 +19,7 @@ def download_hf_dataset_file(
     Download a specific file from a Hugging Face repo.
 
     Args:
-        repo_id (str): The dataset namespace and name (e.g., "user/dataset-name").
+        repo_id (str): The dataset namespace and name (e.g., "user/dataset-name", or "organisation/dataset-name").
         filename (str): The name of the file to download (e.g., "data.conll").
         repo_type (str): Repository type; only "dataset" is supported here.
         local_dir (str): Local directory to save the downloaded file.

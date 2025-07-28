@@ -1,7 +1,9 @@
 import pandas as pd
 from typing import Tuple, List, Union
+from pathlib import Path
 
-from datasets import Dataset, DatasetDict
+from datasets import Dataset, DatasetDict, load_dataset
+
 
 from utils.file_parsers import read_conll
 
@@ -9,77 +11,83 @@ from utils.file_parsers import read_conll
 
 
 def load_ner_dataset(
-        file_path:Union[str,dict],
-        file_type:str = "conll", #options ["conlll", "csv", "txt", "tsv"]
-        text_col:str = "words",
-        label_col:str = "labels",
-
+    file_path: Union[str, Path],
+    source_type: str = "hf",  # ["hf", "local"] #loaded from config when added to pipeline
+    file_type: Union[str, None] = None,  # ["conll", "csv", "tsv", "txt"]
+    text_col: str = "words",
+    label_col: str = "labels",
 ) -> Union[Dataset, DatasetDict]:
     """
-    Loads and converts different file formats to huggingface datasets. 
-    file_path(str): Path/name of file to be load
-    file_type(str): file format. Options--> Conll, csv, tsv
-    text_col: name to be used for the column containing list of tokens/words
-    label_col(str): name to be used for the column containing list of ner tags/labels
-    
+    Loads NER data and returns a HuggingFace Dataset or DatasetDict object.
 
-    Returns: 
-        Dataset | DatasetDict: Huggingface dataset dict object
+    Args:
+        file_path: File path or HF dataset name
+        source_type: One of ["hf", "local"]
+        file_type: Required if source_type is "local". One of ["conll", "csv", "tsv", "txt"]
+        text_col: Column name for tokens
+        label_col: Column name for labels
+
+    Returns:
+        A HuggingFace Dataset or DatasetDict
     """
+    if source_type not in {"hf", "local"}:
+        raise ValueError("source_type must be one of ['hf', 'local']")
+
+    if source_type == "hf":
+        return _load_from_hf(file_path)
+
+    if file_type is None:
+        raise ValueError("file_type must be specified when source_type is 'local'")
+
     file_type = file_type.lower()
 
-    if file_type in ["conll", "txt"]:
-        return _dataset_from_conll(file_path, text_col, label_col)
-    
-    elif file_type in ["csv", "tsv"]:
-        return __dataset__from_csv_tsv(file_path, text_col, label_col, file_type)
-    
-    elif file_type in ["json", "jsonl"]:
-        raise NotImplementedError(f"Missing functionality. {file_type} is yet to be supported. Future updates will include this. Raise a github issue if required")
-    
-    else:
-        raise ValueError(f"Unsupported file type: {file_type}")
+    if file_type in {"conll", "txt"}:
+        return _load_from_conll(file_path, text_col, label_col)
+
+    if file_type in {"csv", "tsv"}:
+        return _load_from_csv_tsv(file_path, text_col, label_col, file_type)
+
+    if file_type in {"json", "jsonl"}:
+        raise NotImplementedError(f"{file_type} format not yet supported.")
+
+    raise ValueError(f"Unsupported file_type: {file_type}")
 
 
+def _load_from_hf(file_path: str) -> DatasetDict:
+    """
+    Load a Hugging Face dataset (local or remote).
+    """
+    return load_dataset(file_path, trust_remote_code=True)
 
-def _dataset_from_conll(file_path: str, text_col: str, label_col: str) -> Dataset:
+
+def _load_from_conll(file_path: str, text_col: str, label_col: str) -> Dataset:
+    """
+    Load dataset from CoNLL format.
+    """
     tokens, labels = read_conll(file_path)
-    return Dataset.from_dict({text_col: tokens, 
-                              label_col: labels})
+    return Dataset.from_dict({text_col: tokens, label_col: labels})
 
 
-
-def __dataset__from_csv_tsv(file_path: str, text_col: str, label_col: str, file_type: str) -> Dataset:
+def _load_from_csv_tsv(file_path: str, text_col: str, label_col: str, file_type: str) -> Dataset:
+    """
+    Load from CSV/TSV or auto-detect CoNLL format in those files.
+    """
     sep = "\t" if file_type == "tsv" else ","
 
-    # Open file to check if file has CONLL structure
     with open(file_path, "r", encoding="utf-8") as f:
         lines = f.readlines()
 
-    # Detect if the first line is a header
-    header_line = lines[0]
-    has_header = any(col.lower() in ["word", "token", "ner", "ner_tag", "ner_tags", "label", "labels"]
-                     for col in header_line.strip().split(sep))
-
-    # Drop header if present 
+    has_header = _has_text_label_header(lines[0], sep)
     data_lines = lines[1:] if has_header else lines
 
-    # check file for CONLL-style format
-    non_empty = [line for line in data_lines if line.strip()]
-    two_col_lines = [line for line in non_empty if len(line.strip().split(sep)) == 2]
+    if _looks_like_conll(data_lines, sep):
+        return _load_from_conll(file_path, text_col, label_col)
 
-    #check percentage of file having CONLL structure
-    if len(two_col_lines) / max(len(non_empty), 1) > 0.9:
-        # Treat like CoNLL/IOB token-per-line format
-        return _dataset_from_conll(file_path, text_col, label_col)
+    df = pd.read_csv(file_path, sep=sep, header=0 if has_header else None)
 
-    # Load as DataFrame: specify header depending on whether file has a header
-    if has_header:
-        df = pd.read_csv(file_path, sep=sep)
-    else:
-        df = pd.read_csv(file_path, sep=sep, header=None, names=[text_col, label_col])
+    if not has_header:
+        df.columns = [text_col, label_col]
 
-    # If token/label columns are stringified lists, convert them
     if isinstance(df[text_col].iloc[0], str) and df[text_col].iloc[0].startswith("["):
         df[text_col] = df[text_col].apply(eval)
         df[label_col] = df[label_col].apply(eval)
@@ -87,6 +95,12 @@ def __dataset__from_csv_tsv(file_path: str, text_col: str, label_col: str, file_
     return Dataset.from_pandas(df)
 
 
+def _has_text_label_header(header_line: str, sep: str) -> bool:
+    known_headers = {"word", "token", "words", "tokens", "ner", "ner_tag", "ner_tags", "label", "labels"}
+    return any(col.lower() in known_headers for col in header_line.strip().split(sep))
 
 
-    
+def _looks_like_conll(data_lines: list[str], sep: str, threshold: float = 0.9) -> bool:
+    non_empty = [line for line in data_lines if line.strip()]
+    two_col_lines = [line for line in non_empty if len(line.strip().split(sep)) == 2]
+    return (len(two_col_lines) / max(len(non_empty), 1)) > threshold

@@ -3,7 +3,7 @@ from requests.exceptions import HTTPError, RequestException
 import functools
 import tarfile
 from pathlib import Path
-from typing import Optional, Union
+from typing import Dict, Optional, Union
 import re
 import sys
 import random
@@ -198,3 +198,40 @@ def prepare_metrics_hf(label_list):
         "accuracy": results["overall_accuracy"],
     }
   return compute_metrics
+
+
+
+
+def rename_labels(dataset: DatasetDict, map: Dict) -> DatasetDict:
+  """
+  Intended for use as a hf Dataset.map() function
+  TODO - Generalise to remove map {}
+
+  Example use:
+  renamed_dataset = dataset.map(rename_labels)
+  renamed_dataset["labels"]
+  """
+  map = {"CELL": "CellType",
+       "TISSUE": "Tissue",
+       "CELL_LINE": "CellLine"}
+
+  doc_labels = dataset["labels"]
+  renamed = []
+  for label in doc_labels:
+    if label == "O":
+      # No change
+      renamed.append(label)
+    elif "-" in label:
+      # Split BIO from label
+      bio, text = label.split("-")
+      if text not in map.keys():
+        renamed.append("O")
+      for og in map:
+        if og == text:
+          # Grab new label
+          new = map[og]
+          # Replace
+          new_label = bio + "-" + new
+          renamed.append(new_label)
+    dataset["labels"] = renamed
+  return dataset

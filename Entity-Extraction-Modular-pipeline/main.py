@@ -18,8 +18,6 @@ from flair.trainers.plugins.loggers.wandb import WandbLogger
 #hf
 import torch 
 
-
-
 from dotenv import load_dotenv
 import os
 import wandb 
@@ -51,15 +49,11 @@ def train_model(cfg: DictConfig):
 
     #load environment variables
     load_dotenv()
-    wandb_token = os.environ.get("WANDB_TOKEN")
     BASE_PATH = os.environ.get("BASE_PATH")
 
     #get run model name
     model_name = cfg.model.name.lower()
-
-    #init wandb
-    wandb.login(key=wandb_token) 
-    wandb_run, run_artifact = init_wandb_run(cfg)
+    dataset_name = cfg.data.name.lower()
 
     #init logger
     setup_loguru(cfg.logging)
@@ -69,31 +63,42 @@ def train_model(cfg: DictConfig):
     logger.info(f"Reproducibility seed set to {cfg.seed}")
 
     #init device
-    device = "cuda" if torch.cuda.is_available() else "cpu" #set device options["cpu", "cuda"]
+    device = "cuda" if torch.cuda.is_available() else "cpu" #set device options["cpu", "gpu"]
 
-    logger.info("Current device set as: {device}")
-    wandb_run.log({"Current device for run" : device})
+    logger.info(f"Current device set as: {device}")
+
+
+    if cfg.enable_wandb:
+      import wandb 
+    #init wandb
+      wandb_token = os.environ.get("WANDB_TOKEN")
+      wandb.login(key=wandb_token) 
+      wandb_run, run_artifact = init_wandb_run(cfg)
+      logger.info(f"Logging to Wandb is enabled for this run. Run logs and metadata will be logged to: {cfg.logging.wandb.project}")
+      wandb_run.log({"Current device for run" : device})
+    else:
+      wandb_run, run_artifact = None, None
+      logger.info(f"Logging to Wandb is disabled for this run. Local logs can be found at: {cfg.logging.loguru.log_dir}.")
+
     
-     
 
     #init output dir for model logs and results
-    output_dir = create_output_dir(base_path=BASE_PATH, name=model_name)
+    output_dir = create_output_dir(base_path=BASE_PATH, name=f"{model_name}_{dataset_name}")
     
 
     logger.info(f"Current Hydra output dir set at: {HydraConfig.get().runtime.output_dir}")
-    print(f"Hydra output dir: {HydraConfig.get().runtime.output_dir}")
 
     
     
+    if model_name == "flair" and cfg.enable_wandb:
+        flair_pipeline.flair_trainer(cfg, wandb_run, run_artifact, output_dir)
 
-    if model_name == "flair":
-        flair_pipeline.flair_trainer(cfg, wandb_run, run_artifact, wandb, output_dir)
     elif model_name == "hf":
         hf_pipeline.hf_trainer(cfg, wandb_run, run_artifact, output_dir, device)
     else:
         raise ValueError(f"Unsupported model type: {model_name}. Choose 'flair' or 'hf'.")
 
-    wandb_run.finish()
+    wandb_run.finish() if cfg.enable_wandb else None
 
 
 

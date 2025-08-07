@@ -1,6 +1,5 @@
 
 from pipelines.model_pipelines import flair_pipeline, hf_pipeline
-#from pipelines.model_pipelines.hf_pipeline import data_loader
 from utils.helper_functions import create_output_dir, set_seed, setup_loguru
 
 from omegaconf import DictConfig, OmegaConf
@@ -8,12 +7,6 @@ import hydra
 from hydra.core.hydra_config import HydraConfig
 from loguru import logger
 import logging 
-
-#flair
-from flair.trainers import ModelTrainer
-from flair.models import SequenceTagger
-from flair.trainers.plugins.loggers.wandb import WandbLogger
-
 
 #hf
 import torch 

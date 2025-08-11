@@ -10,6 +10,7 @@ import logging
 
 
 
+#refactor load_brat func
 def load_brat(input_path: Union[str, Path], ann_path: Optional[str] = None):
     input_path = Path(input_path)
     dataset = []
@@ -22,7 +23,7 @@ def load_brat(input_path: Union[str, Path], ann_path: Optional[str] = None):
             dataset.append({"id":file_id, "text": full_text, "entities": entities})
         else:
             raise FileNotFoundError(f"Annotation file not found for {input_path}")
-    
+
     elif input_path.is_dir():
         for file in os.listdir(input_path):
             if file.endswith(".txt"):
@@ -32,15 +33,15 @@ def load_brat(input_path: Union[str, Path], ann_path: Optional[str] = None):
                 if text_file.exists() and ann_file.exists():
                     full_text, entities = _read_brat(text_file, ann_file)
                     # Check if _read_brat returned the expected values
-                    if full_text is not None and entities is not None:  
+                    if full_text is not None and entities is not None:
                         dataset.append({"text": full_text, "entities": entities})
                     else:
-                        logging.warning(f"Skipping {file_id} due to error in _read_brat") 
+                        raise FileNotFoundError(f"Skipping {file_id} due to error in _read_brat")
                 else:
-                    logging.warning(f"Missing .txt or .ann for file ID: {file_id}")
+                    raise ValueError(f"Missing .txt or .ann for file ID: {file_id}")
     else:
         raise FileNotFoundError(f"Invalid input path: {input_path}")
-    
+
     return dataset
 
 
@@ -58,21 +59,21 @@ def _read_brat(txt_path: Path, ann_path: Optional[str] = None):
               parts = line.strip().split("\t")
               if len(parts) < 3:
                   continue
-              entity_info, entity_name = parts[1], parts[2]
+              entity_info, entity_text = parts[1], parts[2]
 
               # Some annotations have spans like: "Entity 0 10;12 15"
               try:
                   span = entity_info.split()
-                  label = span[0]
+                  entity_label = span[0]
                   start = span[1]
                   end = span[-1]
               except Exception as e:
-                  logging.warning(f"Skipping malformed span: {entity_info}")
+                  raise ValueError(f"Skipping malformed span: {entity_info}")
                   continue
 
               entities.append({
-                  "entity": entity_name,
-                  "label": label,
+                  "text": entity_text,
+                  "label": entity_label,
                   "start": int(start),
                   "end": int(end)
                   })
@@ -80,9 +81,9 @@ def _read_brat(txt_path: Path, ann_path: Optional[str] = None):
       return full_text, entities
 
     except Exception as e:
-        logging.error(f"Error reading {txt_path.name}: {e}")
+        raise ValueError(f"Error reading {txt_path.name}: {e}")
         return None, [] # Return None for both to signal an error
-    
+
 
 
 
@@ -105,24 +106,26 @@ def read_conll(file_path: str) -> Tuple[List[List[str]], List[List[str]]]:
     with open(file_path, "r", encoding="utf-8") as f:
         sentence_tokens, sentence_labels = [], []
 
-        for line in f:
+        for i, line in enumerate(f):
             line = line.strip()
-            if not line:
+            if not line or line.startswith("-DOCSTART-"):
                 # End of sentence
                 if sentence_tokens and sentence_labels:
                     all_tokens.append(sentence_tokens)
                     all_labels.append(sentence_labels)
                     sentence_tokens, sentence_labels = [], []
             else:
-                parts = re.split(r'\s+', line)
+                #parts = re.split(r'\s+', line)
+                parts = line.split()
                 if len(parts) >= 2:
                     sentence_tokens.append(parts[0])   # First part = token
                     sentence_labels.append(parts[-1])  # Last part = label
                 else:
-                    raise ValueError(f"Invalid line format: '{line}'")
+                    raise ValueError(f"Invalid line format on line {i + 1}: '{line}'")
+                
 
         # Handle last sentence if file doesn't end with newline
-        if sentence_tokens and sentence_labels:
+        if sentence_tokens:
             all_tokens.append(sentence_tokens)
             all_labels.append(sentence_labels)
 

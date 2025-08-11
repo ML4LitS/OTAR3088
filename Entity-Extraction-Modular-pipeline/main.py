@@ -1,5 +1,6 @@
 
 from pipelines.model_pipelines import flair_pipeline, hf_pipeline
+#from pipelines.model_pipelines.hf_pipeline import data_loader
 from utils.helper_functions import create_output_dir, set_seed, setup_loguru
 
 from omegaconf import DictConfig, OmegaConf
@@ -7,30 +8,34 @@ import hydra
 from hydra.core.hydra_config import HydraConfig
 from loguru import logger
 import logging 
+import wandb 
 
-#hf
 import torch 
 
 from dotenv import load_dotenv
 import os
-import wandb 
 
 
 # os.environ["HYDRA_FULL_ERROR"]="1"
 
 def init_wandb_run(cfg:DictConfig):
+
     plain_cfg = OmegaConf.to_container(cfg, resolve=True)
+    model_name = cfg.model.name.lower()
+    dataset_name = cfg.data.name.lower()
+    version_name = cfg.data.version_name
     run = wandb.init(
-        name=f"{cfg.model.name}-{wandb.util.generate_id()}",
+        name=f"{model_name}_{dataset_name}-{version_name}-{wandb.util.generate_id()}",
         config=plain_cfg,
         job_type="Model-Training",
-        **cfg.logging.wandb
+        **cfg.logging.wandb,
+        sync_tensorboard=True if model_name=="flair" else False
     )
     artifact = wandb.Artifact(
-        name=f"{cfg.model.name}-Training",
-        description=f"NER model training for {cfg.model.name} using {cfg.data.name}",
+        name=f"{model_name}_{dataset_name}-Training",
+        description=f"NER model training for {model_name} using {dataset_name}, version {version_name}",
         type="model",
-        metadata={"Model architecture": cfg.model.name, "Dataset": cfg.data.name}
+        metadata={"Model architecture": model_name, "Dataset": dataset_name}
     )
     return run, artifact
 
@@ -47,6 +52,7 @@ def train_model(cfg: DictConfig):
     #get run model name
     model_name = cfg.model.name.lower()
     dataset_name = cfg.data.name.lower()
+    version_name = cfg.data.version_name
 
     #init logger
     setup_loguru(cfg.logging)
@@ -61,8 +67,7 @@ def train_model(cfg: DictConfig):
     logger.info(f"Current device set as: {device}")
 
 
-    if cfg.enable_wandb:
-      import wandb 
+    if cfg.use_wandb:
     #init wandb
       wandb_token = os.environ.get("WANDB_TOKEN")
       wandb.login(key=wandb_token) 
@@ -76,14 +81,14 @@ def train_model(cfg: DictConfig):
     
 
     #init output dir for model logs and results
-    output_dir = create_output_dir(base_path=BASE_PATH, name=f"{model_name}_{dataset_name}")
+    output_dir = create_output_dir(base_path=BASE_PATH, name=f"{model_name}_{dataset_name}-{version_name}")
     
 
     logger.info(f"Current Hydra output dir set at: {HydraConfig.get().runtime.output_dir}")
 
     
     
-    if model_name == "flair" and cfg.enable_wandb:
+    if model_name == "flair":
         flair_pipeline.flair_trainer(cfg, wandb_run, run_artifact, output_dir)
 
     elif model_name == "hf":
@@ -91,7 +96,7 @@ def train_model(cfg: DictConfig):
     else:
         raise ValueError(f"Unsupported model type: {model_name}. Choose 'flair' or 'hf'.")
 
-    wandb_run.finish() if cfg.enable_wandb else None
+    wandb_run.finish() if cfg.use_wandb else None
 
 
 

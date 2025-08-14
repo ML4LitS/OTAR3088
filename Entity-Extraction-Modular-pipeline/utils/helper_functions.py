@@ -1,21 +1,28 @@
+from __future__ import annotations
+
 import requests
 from requests.exceptions import HTTPError, RequestException
 import functools
 import tarfile
 from pathlib import Path
-from typing import Dict, Optional, Union
+from typing import Optional, Union, List, Dict
 import re
+import os
 import sys
 import random
+
 import torch
-from datasets import Dataset, DatasetDict, load_metric
+from datasets import Dataset, DatasetDict
+import evaluate
+
 import numpy as np
 import pandas as pd
+
+from loguru import logger
 from omegaconf import DictConfig
+import wandb
 
 
-##missing typ int and docstrings for some func
-##Todo
 
 def catch_request_errors(func):
     """
@@ -78,17 +85,6 @@ def clean_text(text:str) -> str:
     return text
 
 
-def push_to_hub(
-    dataset: Union[Dataset, DatasetDict],
-    repo_name: str,
-    private_repo: bool = False,
-    token: str = None,
-    split_name: str = None,
-):
-    pass
-
-
-
 
 def set_seed(seed: int):
     """Ensure reproducibility across Python, NumPy, and PyTorch"""
@@ -101,17 +97,6 @@ def set_seed(seed: int):
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
-
-# def parallel_process(df, func):
-#     data = [row for _,row in df.iterrows()]
-    
-
-#     # Initialize multiprocessing pool
-#     with Pool(cpu_count()) as pool:
-#         results = list(tqdm(pool.imap(func, data), total=len(data), desc="Processing rows"))
-
-#     # Convert back to DataFrame
-#     return pd.DataFrame(results)
 
 
 def create_output_dir(base_path:str, 
@@ -155,11 +140,10 @@ def create_output_dir(base_path:str,
     raise RuntimeError(f"Failed to create output directory at {output_dir}") from e
   print(f"Output directory created at {output_dir}")
   return output_dir
+    # pass
 
-def setup_loguru(config:Optional[DictConfig]):
-    """Setup loguru to a central directory if specified in hydra config or 
-    default to current directory(useful for inference only)
-    """
+def setup_loguru(config: Optional[DictConfig]):
+    "Setup loguru to a central directory if specified in hydra config or default to current directory(useful for inference only)"
     log_dir = Path(config.loguru.log_dir) if config and "loguru" in config else Path.cwd()
     print(log_dir)
     log_filename = config.loguru.log_filename if config and "loguru" in config else "run.log"
@@ -178,10 +162,8 @@ def setup_loguru(config:Optional[DictConfig]):
     logger.success(f"Loguru initialised at: {log_path}")
 
 
-
-
 def prepare_metrics_hf(label_list):
-  metric = load_metric("seqeval")
+  metric = evaluate.load("seqeval")
   def compute_metrics(eval_preds):
     logits, labels = eval_preds
     predictions = np.argmax(logits, axis=2)
@@ -201,6 +183,21 @@ def prepare_metrics_hf(label_list):
 
 
 
+
+def split_dataset(example, test_size=0.3):
+  """
+  Splits a dataset into train and validation sets
+  Args:
+    example: A huggingface dataset class
+    test_size: Ratio to split dataset by
+  returns:
+  A huggingface dataset with train and validation splits
+
+  """
+  example = example.train_test_split(test_size=0.3)
+  example["validation"] = example["test"]
+  example.pop("test")
+  return example
 
 def rename_labels(dataset: DatasetDict, map: Dict) -> DatasetDict:
   """

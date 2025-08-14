@@ -83,7 +83,12 @@ def _load_from_csv_tsv(file_path: str, text_col: str, label_col: str, file_type:
     if _looks_like_conll(data_lines, sep):
         return _load_from_conll(file_path, text_col, label_col)
 
-    df = pd.read_csv(file_path, sep=sep, header=0 if has_header else None)
+    try:
+        df = pd.read_csv(file_path, sep=sep, header=0 if has_header else None)
+    except pd.errors.ParserError as e:
+        new_sep = next(s for s in ["\t", ","] if s != sep)
+        print(f"Inconsistent file name <-> delimiter found, trying with '{new_sep}'")
+        df = pd.read_csv(file_path, sep=new_sep, header=0 if has_header else None)
 
     if not has_header:
         df.columns = [text_col, label_col]

@@ -8,7 +8,7 @@ from steps.load_ner_dataset_hf import load_ner_dataset
 from steps.tokenize_preprocess import tokenize_and_align
 from utils.helper_functions import prepare_metrics_hf
 
-
+import ast
 import torch
 from datasets import Dataset, DatasetDict, Sequence, Value, ClassLabel
 from transformers import (AutoTokenizer, 
@@ -33,7 +33,13 @@ def count_entity_labels(dataset:Dataset, label_col:str) -> Counter:
       entity_labels_wo_iob = [label.split("-")[-1] if "-" in label else label for label in labels]
       label_counter_wo_iob.update(entity_labels_wo_iob)
     else:
-      raise ValueError(f"Expected list of labels per example, got {type(labels)}")
+        try:
+          labels = ast.literal_eval(labels)
+          label_counter_iob.update(labels)
+          entity_labels_wo_iob = [label.split("-")[-1] if "-" in label else label for label in labels]
+          label_counter_wo_iob.update(entity_labels_wo_iob)
+        except:
+          raise ValueError(f"Expected list of labels per example, got {type(labels)}")
     
   return label_counter_iob, label_counter_wo_iob
 
@@ -44,9 +50,10 @@ def data_loader(cfg:DictConfig) -> Union[Dataset, DatasetDict]:
   train_dataset = load_ner_dataset(cfg.train_file, 
                                  file_type=cfg.file_format
                                  )
-  test_dataset = load_ner_dataset(cfg.test_file, 
-                                 file_type=cfg.file_format
-                                 )
+  if cfg.test_file:
+    test_dataset = load_ner_dataset(cfg.test_file, 
+                                  file_type=cfg.file_format
+                                  )
   val_dataset = load_ner_dataset(cfg.val_file, 
                                  file_type=cfg.file_format
                                  )

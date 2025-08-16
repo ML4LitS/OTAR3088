@@ -1,5 +1,6 @@
 
-from pipelines.model_pipelines import flair_pipeline, hf_pipeline
+from pipelines.model_pipelines import flair_pipeline
+from pipelines.model_pipelines.hf_models import base_trainer
 #from pipelines.model_pipelines.hf_pipeline import data_loader
 from utils.helper_functions import create_output_dir, set_seed, setup_loguru
 
@@ -16,7 +17,7 @@ from dotenv import load_dotenv
 import os
 
 
-# os.environ["HYDRA_FULL_ERROR"]="1"
+os.environ["HYDRA_FULL_ERROR"]="1"
 
 def init_wandb_run(cfg:DictConfig):
 
@@ -28,7 +29,7 @@ def init_wandb_run(cfg:DictConfig):
         name=f"{model_name}_{dataset_name}-{version_name}-{wandb.util.generate_id()}",
         config=plain_cfg,
         job_type="Model-Training",
-        **cfg.logging.wandb,
+        **cfg.logging.wandb.run,
         sync_tensorboard=True if model_name=="flair" else False
     )
     artifact = wandb.Artifact(
@@ -69,10 +70,10 @@ def train_model(cfg: DictConfig):
 
     if cfg.use_wandb:
     #init wandb
-      wandb_token = os.environ.get("WANDB_TOKEN")
-      wandb.login(key=wandb_token) 
+      #wandb_token = os.environ.get("WANDB_TOKEN")
+      wandb.login(key="e04178eb00a14485eae9448bb2f116176f294391")
       wandb_run, run_artifact = init_wandb_run(cfg)
-      logger.info(f"Logging to Wandb is enabled for this run. Run logs and metadata will be logged to: {cfg.logging.wandb.project}")
+      logger.info(f"Logging to Wandb is enabled for this run. Run logs and metadata will be logged to: {cfg.logging.wandb.run.project}")
       wandb_run.log({"Current device for run" : device})
     else:
       wandb_run, run_artifact = None, None
@@ -92,7 +93,8 @@ def train_model(cfg: DictConfig):
         flair_pipeline.flair_trainer(cfg, wandb_run, run_artifact, output_dir)
 
     elif model_name == "hf":
-        hf_pipeline.hf_trainer(cfg, wandb_run, run_artifact, output_dir, device)
+        if cfg.model.training_type == "base":
+            base_trainer.hf_trainer(cfg, wandb_run, run_artifact, output_dir, device)
     else:
         raise ValueError(f"Unsupported model type: {model_name}. Choose 'flair' or 'hf'.")
 

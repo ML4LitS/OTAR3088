@@ -1,25 +1,23 @@
 
-from typing import List, Tuple, Dict, Union, Optional
+from typing import List, Dict, Union, Optional
 from pathlib import Path
-import random
-import glob
-from argparse import ArgumentParser
 
-import torch
 import spacy
 import scispacy
 from tqdm import tqdm
 
+from datasets import Dataset, Sequence, Value, ClassLabel
+
 from utils.file_writers import write_to_conll
 from utils.file_parsers import load_brat
 from utils.helper_functions import clean_text
-#from tokenize_preprocess import tokenize_with_offsets, label_tokens_with_iob
 
 
 
 nlp = spacy.load("en_core_sci_md", disable=["tagger", "parser", "ner", "lemmatizer", "attribute_ruler"]) 
 nlp.add_pipe("sentencizer")
 nlp.max_length = 10_000_000
+
 
 #To-DO
 """
@@ -191,7 +189,17 @@ def tokenize_and_align(examples,
     tokenized_inputs['labels'] = new_labels
     return tokenized_inputs
 
-  
+
+def cast_to_class_labels(dataset:Dataset, label_col:str, text_col:str, unique_tags:List):
+    features = dataset.features.copy()
+    features[text_col] = Sequence(Value("string"))
+    features[label_col] = Sequence(ClassLabel(names=unique_tags,
+                                              num_classes=len(unique_tags)
+                                              ))
+    return dataset.cast(features)
+
+
+
 def process_mult_file_brat(file_ids: List[str], 
                         text_col: str, label_col: str,
                         input_dir: Path, output_dir: Path,

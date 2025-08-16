@@ -12,7 +12,7 @@ import glob
 load_dotenv()
 BASE_PATH = os.environ.get("BASE_PATH")
 
-
+@logger.catch
 @hydra.main(config_path=F"{BASE_PATH}/config", config_name="common_config", version_base=None)
 def brat_converter(cfg:DictConfig):
     #init logger

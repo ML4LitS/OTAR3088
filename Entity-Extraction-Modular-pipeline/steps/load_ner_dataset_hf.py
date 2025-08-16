@@ -1,15 +1,14 @@
 import pandas as pd
-from typing import Tuple, List, Union
+from typing import Union
 from pathlib import Path
 
-from loguru import logger
 from omegaconf import DictConfig
+from loguru import logger
 from datasets import Dataset, DatasetDict, load_dataset
 
 
 from utils.file_parsers import read_conll
 from utils.hf_utils import split_dataset
-
 
 
 
@@ -86,12 +85,7 @@ def _load_from_csv_tsv(file_path: str, text_col: str, label_col: str, file_type:
     if _looks_like_conll(data_lines, sep):
         return _load_from_conll(file_path, text_col, label_col)
 
-    try:
-        df = pd.read_csv(file_path, sep=sep, header=0 if has_header else None)
-    except pd.errors.ParserError as e:
-        new_sep = next(s for s in ["\t", ","] if s != sep)
-        print(f"Inconsistent file name <-> delimiter found, trying with '{new_sep}'")
-        df = pd.read_csv(file_path, sep=new_sep, header=0 if has_header else None)
+    df = pd.read_csv(file_path, sep=sep, header=0 if has_header else None)
 
     if not has_header:
         df.columns = [text_col, label_col]
@@ -122,7 +116,7 @@ def data_loader(cfg:DictConfig) -> Union[Dataset, DatasetDict]:
   source_type = cfg.source_type
 
   if source_type == "hf":
-    dataset = load_ner_dataset(cfg.data_folder, source_type=source_type) 
+    dataset = load_ner_dataset(cfg.hf_path, source_type=source_type) 
   elif source_type == "local":
     dataset = load_ner_dataset(cfg.data_folder, source_type=source_type, file_type=file_type)
 
@@ -132,14 +126,13 @@ def data_loader(cfg:DictConfig) -> Union[Dataset, DatasetDict]:
   if len(data_split) <= 1:
     #raise ValueError(f"Dataset must have an eval set for training, but received {data_split[0]}. Use the inference pipeline if running inference")
     # print(f"No validation set found in dataset. Auto-generating validation split using split ratio 80:20 training set")
-    logger.warning(f"No validation set found in dataset. Auto-generating validation split from training set")
+    logger.warning(f"No validation set found in dataset. Auto-generating validation split using {cfg.test_size*100}% of training set")
     dataset = split_dataset(dataset[data_split[0]], test_size=0.2)
 
   train_dataset = dataset["train"]
   eval_dataset = dataset["validation"]
   default_column_names = train_dataset.column_names
-  
-  #rename columns for uniformity across pipeline 
+
   rename_dict = {default_column_names[0]: "words",
                  default_column_names[1]: "labels"}
 

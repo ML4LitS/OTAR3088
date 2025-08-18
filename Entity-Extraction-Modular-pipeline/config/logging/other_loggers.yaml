@@ -1,16 +1,19 @@
 # config/logging/other-loggers.yaml
 wandb:
-  project: "otar-3088"
-  dir: logs/${model.name}
-  entity: "ebi_literature"        
-  #mode: "online"               
-  tags: ["${model.name}", "${data.name}", "ner", "hydra"]
-  #name: ${model.name}
+  run:
+    project: otar-3088
+    dir: logs/${model.name}/${data.name}_${data.version_name}
+    entity: ebi_literature                    
+    tags: ["${model.name}", "${data.name}", "ner", "hydra"]
+    
+  registry:
+    registry_name: CeLLaTe-Entities
+    collection_name: CeLLaTe-Models
 
 
 loguru:
   level: DEBUG
   #rotation: 1 week
   #retention: 2 months
-  log_dir: logs/${model.name}
+  log_dir: logs/${model.name}/${data.name}_${data.version_name}
   log_filename: ${model.name}_${data.name}_model.log

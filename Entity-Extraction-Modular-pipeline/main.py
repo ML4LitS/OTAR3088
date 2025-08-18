@@ -70,8 +70,8 @@ def train_model(cfg: DictConfig):
 
     if cfg.use_wandb:
     #init wandb
-      #wandb_token = os.environ.get("WANDB_TOKEN")
-      wandb.login(key="e04178eb00a14485eae9448bb2f116176f294391")
+      wandb_token = os.environ.get("WANDB_TOKEN")
+      wandb.login(key=wandb_token)
       wandb_run, run_artifact = init_wandb_run(cfg)
       logger.info(f"Logging to Wandb is enabled for this run. Run logs and metadata will be logged to: {cfg.logging.wandb.run.project}")
       wandb_run.log({"Current device for run" : device})

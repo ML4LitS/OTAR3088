@@ -9,8 +9,8 @@ args:
   per_device_train_batch_size: ${batch_size}
   per_device_eval_batch_size: ${eval_batch_size}
   num_train_epochs: ${num_epochs}
-  weight_decay: 0.01
-  warmup_steps: 500
+  weight_decay: 0.1
+  #warmup_steps: 500
   lr_scheduler_type: linear
 
   # Logging and evaluation
@@ -21,17 +21,19 @@ args:
   save_total_limit: 2
   load_best_model_at_end: true
   metric_for_best_model: "eval_f1"
-  group_by_length: true
-  gradient_accumulation_steps: 4
+  greater_is_better: true
+  group_by_length: "True"
+  #gradient_accumulation_steps: 4
+  # max_grad_norm: 10
 
   # Optional params 
   fp16: true #mixed precision for faster training on GPU
   report_to: "wandb"  # options["wandb", "tensorboard", etc].
+  seed: ${seed}
 
 
 #dataset
 text_col: "words"
 label_col: "labels"
 
-
-
+training_type: "base"

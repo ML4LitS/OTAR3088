@@ -106,17 +106,20 @@ def hf_trainer(cfg,
           )
   
   trainer.add_callback(CustomCallback(trainer=trainer))
+  logger.info("Training commencing")
   trainer.train()
+  logger.info("Training completed....")
   if cfg.use_wandb:
-    wandb_run.log({"training results": trainer.evaluate(train_dataset)})
+    wandb_run.log({"training results": trainer.evaluate(tokenized_train)})
     results = trainer.evaluate()
     best_ckpt_path = trainer.state.best_model_checkpoint
-    run_artifact.add_file(local_dir=best_ckpt_path, name="Best Model Checkpoint path for this run")
-    run_artifact.add_file(results, name="Validation resuls")
+    run_artifact.add_dir(local_path=best_ckpt_path, name="Best Model Checkpoint path for this run")
+    #run_artifact.add(results, name="Validation resuls")
     run_artifact.save()
     logger.info("Linking run to wandb registry")
     wandb_run.log_artifact(run_artifact)
-    target_save_path=f"{cfg.logging.wandb.entity}/registry/{cfg.logging.wandb.registry_name}/{cfg.logging.wandb.collection_name}"
+    target_save_path=f"{cfg.logging.wandb.run.entity}/{cfg.logging.wandb.registry.registry_name}/{cfg.logging.wandb.registry.collection_name}"
+    logger.info(f"Target wandb registry path for this run is set at: {target_save_path}")
     wandb_run.link_artifact(artifact=run_artifact,
                             target_path=target_save_path,
                              aliases=[cfg.model.name, cfg.data.name, checkpoint_size, "base model"]

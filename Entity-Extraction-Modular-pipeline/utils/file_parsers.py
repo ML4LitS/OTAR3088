@@ -121,8 +121,8 @@ def read_conll(file_path: str) -> Tuple[List[List[str]], List[List[str]]]:
                     sentence_tokens.append(parts[0])   # First part = token
                     sentence_labels.append(parts[-1])  # Last part = label
                 else:
-                    raise ValueError(f"Invalid line format on line {i + 1}: '{line}'")
-                
+                    logging.warning(f"Skipping invalid line format on line {i + 1}: '{line}'")
+                    continue
 
         # Handle last sentence if file doesn't end with newline
         if sentence_tokens:

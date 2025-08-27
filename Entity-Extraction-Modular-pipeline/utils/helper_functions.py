@@ -13,7 +13,7 @@ import pandas as pd
 
 
 import torch
-from datasets import Dataset, DatasetDict, load_metric
+from datasets import Dataset, DatasetDict
 
 from omegaconf import DictConfig
 

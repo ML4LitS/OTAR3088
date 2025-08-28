@@ -11,7 +11,6 @@ from utils.file_parsers import read_conll
 from utils.hf_utils import split_dataset
 
 
-
 def load_ner_dataset(
     file_path: Union[str, Path],
     source_type: str = "hf",  # ["hf", "local"] #loaded from config when added to pipeline
@@ -120,10 +119,10 @@ def data_loader(cfg:DictConfig) -> Union[Dataset, DatasetDict]:
     dataset = load_ner_dataset(cfg.hf_path, source_type=source_type) 
   elif source_type == "local":
     if data_prepped:
-        train_dataset = load_ner_dataset(cfg.train_file, source_type=source_type, file_type=source_type)
+        train_dataset = load_ner_dataset(cfg.train_file, source_type=source_type, file_type=file_type)
         #  TODO - Why has eval been removed here? For now placing test data in eval_dataset
         # test_dataset = load_ner_dataset(cfg.hf_path, source_type=source_type)
-        eval_dataset = load_ner_dataset(cfg.test_file, source_type=source_type, file_type=source_type)
+        eval_dataset = load_ner_dataset(cfg.test_file, source_type=source_type, file_type=file_type)
         return train_dataset, eval_dataset
     else:
         dataset = load_ner_dataset(cfg.data_folder, source_type=source_type, file_type=file_type)

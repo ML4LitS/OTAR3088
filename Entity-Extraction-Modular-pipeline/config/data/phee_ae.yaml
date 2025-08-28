@@ -7,6 +7,7 @@ data_prepped: True
 
 #for hf
 file_type: "conll"
+file_format: "conll"
 source_type: "local"
 train_file: "${.data_folder}/PHEE_train_v1.${.file_format}"
 test_file: "${.data_folder}/PHEE_test_v1.${.file_format}"

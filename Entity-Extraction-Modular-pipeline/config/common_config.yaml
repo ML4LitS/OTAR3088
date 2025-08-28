@@ -14,6 +14,8 @@ warmup_ratio: 0.1
 optimizer: "AdamW"
 eval_batch_size: 16
 lr: 2e-5
-
+# Check this is an ok addition
+model_checkpoint: "bert-base-cased"
+fine_tune: true
 
 use_wandb: true

@@ -1,5 +1,5 @@
 name: phee_ae
-version_name: "phee_ae"
+version_name: "phee_ae_V1"
 data_folder: "Datasets/${.version_name}" #used for model training only
 
 # No preprocessing needed

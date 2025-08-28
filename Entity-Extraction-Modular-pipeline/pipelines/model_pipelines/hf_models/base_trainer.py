@@ -4,7 +4,7 @@ from loguru import logger
 from steps.load_ner_dataset_hf import data_loader
 from steps.tokenize_preprocess import tokenize_and_align, cast_to_class_labels
 
-from transformers import TrainingArguments
+from transformers import AutoModelForTokenClassification, TrainingArguments
 
 
 from utils.hf_utils import (
@@ -92,16 +92,22 @@ def hf_trainer(cfg,
 
   #init compute metrics
   compute_metrics = prepare_metrics_hf(unique_tags)
+  
+  def model_init():
+    return AutoModelForTokenClassification.from_pretrained(
+        cfg.model_checkpoint,
+        num_labels=len(id2label),
+        id2label=id2label,
+        label2id=label2id
+    )
 
-
-  trainer = CustomTrainer(model=model,
+  trainer = CustomTrainer(model_init=model_init,
           args=args,
           train_dataset=tokenized_train,
           eval_dataset=tokenized_val,
           processing_class=tokenizer,
           data_collator=data_collator,
           compute_metrics=compute_metrics,
-          id2label=model.config.id2label
           )
   
   trainer.add_callback(CustomCallback(trainer=trainer))

@@ -114,29 +114,37 @@ def data_loader(cfg:DictConfig) -> Union[Dataset, DatasetDict]:
 
   file_type = cfg.file_type
   source_type = cfg.source_type
+  data_prepped =  cfg.data_prepped
 
   if source_type == "hf":
     dataset = load_ner_dataset(cfg.hf_path, source_type=source_type) 
   elif source_type == "local":
-    dataset = load_ner_dataset(cfg.data_folder, source_type=source_type, file_type=file_type)
+    if data_prepped:
+        train_dataset = load_ner_dataset(cfg.train_file, source_type=source_type)
+        #  TODO - Why has eval been removed here? For now placing test data in eval_dataset
+        # test_dataset = load_ner_dataset(cfg.hf_path, source_type=source_type)
+        eval_dataset = load_ner_dataset(cfg.test_file, source_type=source_type)
+        return train_dataset, eval_dataset
+    else:
+        dataset = load_ner_dataset(cfg.data_folder, source_type=source_type, file_type=file_type)
 
-  data_split = list(dataset.keys())
-  print(data_split)
-  print(len(data_split))
-  if len(data_split) <= 1:
-    #raise ValueError(f"Dataset must have an eval set for training, but received {data_split[0]}. Use the inference pipeline if running inference")
-    # print(f"No validation set found in dataset. Auto-generating validation split using split ratio 80:20 training set")
-    logger.warning(f"No validation set found in dataset. Auto-generating validation split using {cfg.test_size*100}% of training set")
-    dataset = split_dataset(dataset[data_split[0]], test_size=0.2)
+        data_split = list(dataset.keys())
+        print(data_split)
+        print(len(data_split))
+        if len(data_split) <= 1:
+            #raise ValueError(f"Dataset must have an eval set for training, but received {data_split[0]}. Use the inference pipeline if running inference")
+            # print(f"No validation set found in dataset. Auto-generating validation split using split ratio 80:20 training set")
+            logger.warning(f"No validation set found in dataset. Auto-generating validation split using {cfg.test_size*100}% of training set")
+            dataset = split_dataset(dataset[data_split[0]], test_size=0.2)
 
-  train_dataset = dataset["train"]
-  eval_dataset = dataset["validation"]
-  default_column_names = train_dataset.column_names
+        train_dataset = dataset["train"]
+        eval_dataset = dataset["validation"]
+        default_column_names = train_dataset.column_names
 
-  rename_dict = {default_column_names[0]: "words",
-                 default_column_names[1]: "labels"}
+        rename_dict = {default_column_names[0]: "words",
+                        default_column_names[1]: "labels"}
 
-  train_dataset = train_dataset.rename_columns(rename_dict)
-  eval_dataset = eval_dataset.rename_columns(rename_dict)
+        train_dataset = train_dataset.rename_columns(rename_dict)
+        eval_dataset = eval_dataset.rename_columns(rename_dict)
 
-  return train_dataset, eval_dataset
+        return train_dataset, eval_dataset

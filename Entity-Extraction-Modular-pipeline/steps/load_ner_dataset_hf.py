@@ -120,7 +120,8 @@ def data_loader(cfg:DictConfig) -> Union[Dataset, DatasetDict]:
   elif source_type == "local":
     if data_prepped:
         train_dataset = load_ner_dataset(cfg.train_file, source_type=source_type, file_type=file_type)
-        #  TODO - Why has eval been removed here? For now placing test data in eval_dataset
+        # TODO - Consider what we would do should we wish to test data
+        # TODO - This would include another cfg flag, after which if true would run these sections but w test
         # test_dataset = load_ner_dataset(cfg.hf_path, source_type=source_type)
         eval_dataset = load_ner_dataset(cfg.test_file, source_type=source_type, file_type=file_type)
         return train_dataset, eval_dataset

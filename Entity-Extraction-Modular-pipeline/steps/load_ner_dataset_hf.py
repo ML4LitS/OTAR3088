@@ -121,7 +121,8 @@ def data_loader(cfg:DictConfig) -> Union[Dataset, DatasetDict]:
   elif source_type == "local":
     if data_prepped:
         train_dataset = load_ner_dataset(cfg.train_file, source_type=source_type, file_type=source_type)
-        #  TODO - Why has eval been removed here? For now placing test data in eval_dataset
+        # TODO - Why has eval been removed here? For now placing test data in eval_dataset
+        # TODO - This data_prepped part is incoming / TBC
         # test_dataset = load_ner_dataset(cfg.hf_path, source_type=source_type)
         eval_dataset = load_ner_dataset(cfg.test_file, source_type=source_type, file_type=source_type)
         return train_dataset, eval_dataset

@@ -101,7 +101,7 @@ def hf_trainer(cfg,
         id2label=id2label,
         label2id=label2id
     )
-    model.resize_token_embeddings(len(tokenizer)) # Trying to ensure embedding length = that of tokenizer
+    model.resize_token_embeddings(len(tokenizer)) # Ensure embedding length = that of tokenizer
     return model
 
   trainer = CustomTrainer(model_init=model_init,
@@ -111,7 +111,7 @@ def hf_trainer(cfg,
           processing_class=tokenizer,
           data_collator=data_collator,
           compute_metrics=compute_metrics,
-          id2label=id2label, # Testing to see if this fixes NoneType break
+          id2label=id2label, # Explicitly state to avoid NoneType break
           )
   
   trainer.add_callback(CustomCallback(trainer=trainer))
@@ -130,7 +130,7 @@ def hf_trainer(cfg,
         }
 
     def compute_objective(metrics):
-        return metrics["eval_f1"] # TODO - Is there anything else this could be?
+        return metrics["eval_f1"]
 
     best_run = trainer.hyperparameter_search(
         hp_space=hp_space,
@@ -156,7 +156,18 @@ def hf_trainer(cfg,
     results = trainer.evaluate()
     best_ckpt_path = trainer.state.best_model_checkpoint
     run_artifact.add_dir(local_path=best_ckpt_path, name="Best Model Checkpoint path for this run")
-
+    
+    # TODO - Testing out test review
+    # Ideal to reload model form best checkpoint - ensure hf is behaving
+    test_model = AutoModelForTokenClassification.from_pretrained(best_ckpt_path, num_labels=len(id2label),
+                                                                 id2label=id2label, label2id=label2id)
+    trainer = Trainer(model = test_model,
+                      args = args,
+                      compute_metrics = compute_metrics,
+                      tokenizer = tokenizer)
+    test_results = trainer.predict(tokenized_datasets["test"])
+    # test_results = trainer.evaluate(test_data?)
+    
     logger.info(f"Best model checkpoint saved: {best_ckpt_path}")
     #run_artifact.add(results, name="Validation resuls")
     run_artifact.save()

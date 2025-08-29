@@ -14,5 +14,6 @@ test_file: "${.data_folder}/PHEE_test_v1.${.file_format}"
 val_file: "${.data_folder}/PHEE_eval_v1.${.file_format}" 
 
 # Options to add hyperparameter finetuning
-fine_tune: true
-tune_trials: 3 # This could default to ~ 10 once working
+#fine_tune: true
+#tune_trials: 3 # This could default to ~ 10 once working
+#Don't think these should be here

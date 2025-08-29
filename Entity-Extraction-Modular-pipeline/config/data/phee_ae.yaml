@@ -2,12 +2,12 @@ name: phee_ae
 version_name: "phee_ae_V1"
 data_folder: "Datasets/${.version_name}" #used for model training only
 
-# No preprocessing needed
+# If no preprocessing needed
 data_prepped: True
 
-#for hf
+# for hf
 file_type: "conll"
 source_type: "local"
 train_file: "${.data_folder}/PHEE_train_v1.${.file_format}"
 test_file: "${.data_folder}/PHEE_test_v1.${.file_format}"
-val_file: "${.data_folder}/PHEE_eval_v1.${.file_format}" 
+val_file: "${.data_folder}/PHEE_eval_v1.${.file_format}"

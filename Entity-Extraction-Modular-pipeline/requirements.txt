@@ -55,6 +55,7 @@ cloudpickle==3.1.1
 colorama==0.4.6
 colorcet==3.1.0
 coloredlogs==15.0.1
+colorlog==6.9.0
 colorspacious==1.1.2
 comm==0.2.2
 conda-store==2025.2.2
@@ -91,6 +92,7 @@ dvc-render==1.0.2
 dvc-studio-client==0.21.0
 dvc-task==0.40.2
 en-core-sci-md @ https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.4/en_core_sci_md-0.5.4.tar.gz
+en-core-sci-sm @ https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.4/en_core_sci_sm-0.5.4.tar.gz
 entrypoints==0.4
 evaluate==0.4.5
 executing==2.2.0
@@ -229,6 +231,7 @@ onnxruntime==1.19.0
 opencv-python==4.10.0.84
 optimum==1.26.1
 optional-django==0.1.0
+optuna==4.5.0
 orjson==3.10.7
 overrides==7.7.0
 packaging==25.0

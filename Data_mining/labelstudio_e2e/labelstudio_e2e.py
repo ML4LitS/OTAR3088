@@ -13,7 +13,6 @@ from epmc_to_json import *
 
 nlp = spacy.load("en_core_web_sm")
 
-
 def search_epmc(query: str, page_size: int = 10) -> pd.DataFrame:
     # Pulled from Amina's script
     full_search_query = f"{query} HAS_FULLTEXT:Y AND OPEN_ACCESS:Y AND LICENSE:CC"
@@ -161,7 +160,7 @@ def ls_dictionary_format(path_to_dict: str) -> pd.DataFrame:
     df_clean.columns = ["term", "label"]
 
     # Drop short terms in dictionary due to ambiguity
-    # TODO - Q? Should terms like 'cell' be dropped also, or are they helpful markers for review?
+    # TODO - TBD whether terms like 'cell' be dropped, or are they helpful
     df_clean['length'] = df_clean.apply(lambda x: len(x['term']) > 2, axis=1)
     df_clean = df_clean[df_clean['length'] == True]
     df_clean = df_clean.drop(columns=['length'])
@@ -257,16 +256,19 @@ def ls_formatter(dict_file: str, texts_file: str, output_json: str, pmcid: Optio
 def collate_dictionaries(dictionaries: List, path_to_output: str):
     """
     Collating provided dictionaries to one master df for annotation
+    Cleanup for compliance with model expectations of annotations
     :param dictionaries: paths to input tsv
     :param path_to_output
     """
     master_df = pd.DataFrame(columns=['term', 'label'])
     for dictionary in dictionaries:
         df_clean = ls_dictionary_format(path_to_dict=dictionary)
+        df_clean.loc[df_clean["label"] == "CELL", "label"] = "Cell"
+        df_clean.loc[df_clean["label"] == "TISSUE", "label"] = "Tissue"
         master_df = pd.concat([master_df, df_clean])
     master_df.to_csv(path_to_output, sep="\t", index=False)
 
-
+# # Couldn't get this working, for now manual import of data is used
 # def import_task():
 #     MY_KEY = 'Insert LabelStudio Key'
 #
@@ -327,21 +329,37 @@ if __name__ == "__main__":
     ls_formatter(dict_file=master_path, texts_file="./output/labelstudio/sample.txt",
                  output_json="./output/labelstudio/test.json", pmcid=None)
 
-    # Cell line names derived from ChEMBL assay descriptions
-    # Grabbing the top and bottom 5 for variation in papers seen
-    cellline_freqs = '/Users/withers/GitProjects/OTAR3088/Data_mining/chembl_sql/cell_line/assay_cell_type_freq.csv'
-    celllines = pd.read_csv(cellline_freqs)
-    top = celllines['assay_cell_type'].to_list()[:5]
-    bottom = celllines['assay_cell_type'].to_list()[-5:]
-    search_queries = top + bottom + ['synthetic tissue']
+    # # Cell line names derived from ChEMBL assay descriptions
+    # # Grabbing the top and bottom 5 for variation in papers seen
+    # cellline_freqs = '/Users/withers/GitProjects/OTAR3088/Data_mining/chembl_sql/cell_line/assay_cell_type_freq.csv'
+    # celllines = pd.read_csv(cellline_freqs)
+    # top = celllines['assay_cell_type'].to_list()[:5]
+    # bottom = celllines['assay_cell_type'].to_list()[-5:]
+    # search_queries = top + bottom + ['synthetic tissue']
 
-    pmcids = search_pmcids(search_queries=search_queries)
+    # pmcids = search_pmcids(search_queries=search_queries)
+
+    # # Re-running with original cellate papers for annotation V2
+    pmcids = [
+        "PMC12115102",
+        "PMC12101583",
+        "PMC12081701",
+        "PMC11075828",
+        "PMC10442740",
+        "PMC12141184",
+        "PMC12118871",
+        "PMC12105127",
+        "PMC12072392",
+        "PMC11699618",
+        "PMC11641291",
+        "PMC11419360"
+    ]
     cleaned_full_texts = collect_full_text(pmcids=pmcids)
 
     print('\nWriting annotations to file...\n')
     for k, v in tqdm(cleaned_full_texts.items()):
-        annotated_path = f'./output/labelstudio/{k}_annotation.txt'
-        ls_json_path = f'./output/labelstudio/{k}_annotated.json'
+        annotated_path = f'./output/labelstudio/V2/{k}_annotation.txt'
+        ls_json_path = f'./output/labelstudio/V2/{k}_annotation.json'
         write_ls_textfile(input_text=v, path_to_outfile=annotated_path)
         ls_formatter(dict_file=master_path,
                      texts_file=annotated_path,

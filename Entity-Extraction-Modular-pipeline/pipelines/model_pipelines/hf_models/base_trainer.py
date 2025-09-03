@@ -118,6 +118,7 @@ def hf_trainer(cfg,
   # Optional hyperparameter tuning
 
   if cfg.fine_tune:
+    # TODO - Relocate this code to standalone
     logger.info("Will complete train with hyperparameter finetuning")
 
     def hp_space(trial):

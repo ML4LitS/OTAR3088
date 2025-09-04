@@ -9,6 +9,7 @@ from transformers import AutoModelForTokenClassification, TrainingArguments
 from utils.hf_utils import (
                             get_label2id_id2label,
                             get_model,
+                            hyperparameter_finetuning,
                             count_entity_labels,
                             count_trainable_params,
                             init_tokenizer_data_collator,
@@ -119,29 +120,13 @@ def hf_trainer(cfg,
 
   if cfg.fine_tune:
     # TODO - Relocate this code to standalone
-    logger.info("Will complete train with hyperparameter finetuning")
+    logger.info("Will complete training with hyperparameter finetuning")
+    best_run = hyperparameter_finetuning(trainer, search_backend='optuna') # Optuna = default
+    # TODO - Add catch if other backend is not installed, e.g. ray / wandb
 
-    def hp_space(trial):
-        return {
-            "learning_rate": trial.suggest_float("learning_rate", 5e-6, 5e-4, log=True),
-            "per_device_train_batch_size": trial.suggest_categorical("per_device_train_batch_size", [8, 16, 32]),
-            "num_train_epochs": trial.suggest_int("num_train_epochs", 3, 10),
-            "weight_decay": trial.suggest_float("weight_decay", 0.0, 0.3),
-        }
-
-    def compute_objective(metrics):
-        return metrics["eval_f1"]
-
-    best_run = trainer.hyperparameter_search(
-        hp_space=hp_space,
-        direction="maximize",
-        backend="optuna",  # TODO - change for "ray"/"wandb"?
-        n_trials=cfg.tune_trials if hasattr(cfg, "tune_trials") else 10,
-        compute_objective=compute_objective,
-    )
     logger.info(f"Best hyperparameters found: {best_run}")
     if cfg.use_wandb:
-        wandb_run.log({"Best hyperparameters": best_run.hyperparameters})
+        wandb_run.log({"Best hyperparameters w. optuna tuning": best_run.hyperparameters})
 
     # Retrain with the best hyperparameters
     for param, value in best_run.hyperparameters.items():
@@ -149,38 +134,6 @@ def hf_trainer(cfg,
 
     logger.info("Retraining with best hyperparameters...")
     trainer.train()
-
-    # Pick up from training w.o. finetuning
-    # TODO - De-duplicate code
-    wandb_run.log({"training results": trainer.evaluate(tokenized_train)})
-    results = trainer.evaluate()
-    best_ckpt_path = trainer.state.best_model_checkpoint
-    run_artifact.add_dir(local_path=best_ckpt_path, name="Best Model Checkpoint path for this run")
-    
-    # TODO - Testing out test review
-    # Ideal to reload model form best checkpoint - ensure hf is behaving
-    test_model = AutoModelForTokenClassification.from_pretrained(best_ckpt_path, num_labels=len(id2label),
-                                                                 id2label=id2label, label2id=label2id)
-    trainer = Trainer(model = test_model,
-                      args = args,
-                      compute_metrics = compute_metrics,
-                      tokenizer = tokenizer)
-    test_results = trainer.predict(tokenized_datasets["test"])
-    # test_results = trainer.evaluate(test_data?) ? TODO
-    
-    logger.info(f"Best model checkpoint saved: {best_ckpt_path}")
-    #run_artifact.add(results, name="Validation resuls")
-    run_artifact.save()
-    logger.info("Linking run to wandb registry")
-    wandb_run.log_artifact(run_artifact)
-    target_save_path=f"{cfg.logging.wandb.run.entity}/{cfg.logging.wandb.registry.registry_name}/{cfg.logging.wandb.registry.collection_name}"
-    logger.info(f"Target wandb registry path for this run is set at: {target_save_path}")
-    wandb_run.link_artifact(artifact=run_artifact,
-                            target_path=target_save_path,
-                            aliases=[cfg.model.name, cfg.data.name, checkpoint_size, "base model"]
-    )
-                          
-    logger.success("Artifact logged to registry")
 
   else:
     logger.info("Training commencing")

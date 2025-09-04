@@ -16,7 +16,6 @@ from transformers import (Trainer,
                           AutoTokenizer)
 
 
-
 def prepare_metrics_hf(label_list):
   metric = evaluate.load("seqeval")
   def compute_metrics(eval_preds):
@@ -40,8 +39,6 @@ def prepare_metrics_hf(label_list):
   return compute_metrics
 
 
-
-
 def split_dataset(example, test_size=0.2):
   """
   Splits a dataset into train and validation sets
@@ -56,7 +53,6 @@ def split_dataset(example, test_size=0.2):
   example["validation"] = example["test"]
   example.pop("test")
   return example
-
 
 
 def update_counters(labels: List,
@@ -167,9 +163,6 @@ def count_trainable_params(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
-
-
-
 class CustomTrainer(Trainer):
     def __init__(self, *args, id2label=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -200,7 +193,6 @@ class CustomTrainer(Trainer):
         return (loss, outputs) if return_outputs else loss
 
 
-
 class CustomCallback(TrainerCallback):
     def __init__(self, trainer) -> None:
         super().__init__()
@@ -226,3 +218,42 @@ class CustomCallback(TrainerCallback):
         self._trainer.epoch_predictions = []
         self._trainer.epoch_labels = []
         self._trainer.epoch_loss = []
+
+
+def hyperparameter_finetuning(trainer: Trainer,
+                              search_backend: str = "optuna",
+                              n_trials: int = 10):
+
+  # TODO - Is it necessary to define hp search space or to leave as default?
+  # In the case of optuna, default is [`~trainer_utils.default_hp_space_optuna`]
+  # Will swap for default for now, otherwise function is below:
+  # def hp_space(trial):
+  #     return {
+  #         "learning_rate": trial.suggest_float("learning_rate", 5e-6, 5e-4, log=True),
+  #         "per_device_train_batch_size": trial.suggest_categorical("per_device_train_batch_size", [8, 16, 32]),
+  #         "num_train_epochs": trial.suggest_int("num_train_epochs", 3, 10),
+  #         "weight_decay": trial.suggest_float("weight_decay", 0.0, 0.3),
+  #     }
+
+  # Aim to optimize metrics to maximize f1 score
+  def compute_objective(metrics):
+      return metrics["eval_f1"]
+
+  best_run = trainer.hyperparameter_search(
+      # hp_space=hp_space,
+      direction="maximize",
+      backend=search_backend,  # TODO - change for "ray"/"wandb"?
+      n_trials=n_trials,
+      compute_objective=compute_objective,
+    )
+  logger.info(f"Best hyperparameters found: {best_run}")
+  if cfg.use_wandb:
+      wandb_run.log({"Best hyperparameters": best_run.hyperparameters})
+
+  # Retrain with the best hyperparameters
+  # for param, value in best_run.hyperparameters.items():
+  #     setattr(trainer.args, param, value)
+
+  # logger.info("Retraining with best hyperparameters...")
+  # trainer.train()
+  return best_run

@@ -2,7 +2,7 @@ defaults:
   - _self_
   - logging/hydra_config
   - logging: other_loggers
-  - model: hf_config
+  - model: hf_finetuning
   - data: phee_ae
 
 

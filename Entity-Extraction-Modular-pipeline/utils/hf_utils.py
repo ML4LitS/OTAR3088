@@ -220,11 +220,13 @@ class CustomCallback(TrainerCallback):
         self._trainer.epoch_loss = []
 
 
-def hyperparameter_finetuning(trainer, search_backend: str = "optuna"):
+def hyperparameter_finetuning(trainer: Trainer,
+                              search_backend: str = "optuna",
+                              n_trials: int = 10):
 
   # TODO - Is it necessary to define hp search space or to leave as default?
-  # In the case of optuna default is [`~trainer_utils.default_hp_space_optuna`]
-  # Will swap for default for now, otherwise function is below
+  # In the case of optuna, default is [`~trainer_utils.default_hp_space_optuna`]
+  # Will swap for default for now, otherwise function is below:
   # def hp_space(trial):
   #     return {
   #         "learning_rate": trial.suggest_float("learning_rate", 5e-6, 5e-4, log=True),
@@ -241,17 +243,17 @@ def hyperparameter_finetuning(trainer, search_backend: str = "optuna"):
       # hp_space=hp_space,
       direction="maximize",
       backend=search_backend,  # TODO - change for "ray"/"wandb"?
-      n_trials=cfg.tune_trials if hasattr(cfg, "tune_trials") else 10,
+      n_trials=n_trials,
       compute_objective=compute_objective,
     )
   logger.info(f"Best hyperparameters found: {best_run}")
-  return best_run
   if cfg.use_wandb:
       wandb_run.log({"Best hyperparameters": best_run.hyperparameters})
 
   # Retrain with the best hyperparameters
-  for param, value in best_run.hyperparameters.items():
-      setattr(trainer.args, param, value)
+  # for param, value in best_run.hyperparameters.items():
+  #     setattr(trainer.args, param, value)
 
-  logger.info("Retraining with best hyperparameters...")
-  trainer.train()
+  # logger.info("Retraining with best hyperparameters...")
+  # trainer.train()
+  return best_run

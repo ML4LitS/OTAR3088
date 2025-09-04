@@ -91,7 +91,7 @@ def hf_trainer(cfg,
   trainable_params = count_trainable_params(model)
   logger.info(f"Model trainiable params: {trainable_params}")
 
-  #init compute metrics
+  # Init compute metrics
   compute_metrics = prepare_metrics_hf(unique_tags)
   
   def model_init():
@@ -116,13 +116,35 @@ def hf_trainer(cfg,
   
   trainer.add_callback(CustomCallback(trainer=trainer))
 
+  logger.info("Training commencing")
+  trainer.train()
+  logger.info("Training completed....")
+  if cfg.use_wandb:
+    wandb_run.log({"training results": trainer.evaluate(tokenized_train)})
+    results = trainer.evaluate()
+    best_ckpt_path = trainer.state.best_model_checkpoint
+    run_artifact.add_dir(local_path=best_ckpt_path, name="Best Model Checkpoint path for this run")
+    #run_artifact.add(results, name="Validation resuls")
+    run_artifact.save()
+    logger.info("Linking run to wandb registry")
+    wandb_run.log_artifact(run_artifact)
+    target_save_path=f"{cfg.logging.wandb.run.entity}/{cfg.logging.wandb.registry.registry_name}/{cfg.logging.wandb.registry.collection_name}"
+    logger.info(f"Target wandb registry path for this run is set at: {target_save_path}")
+    wandb_run.link_artifact(artifact=run_artifact,
+                            target_path=target_save_path,
+                            aliases=[cfg.model.name, cfg.data.name, checkpoint_size, "base model"]
+    )
+                          
+    logger.success("Artifact logged to registry")
+  
   # Optional hyperparameter tuning
-
   if cfg.fine_tune:
-    # TODO - Relocate this code to standalone
     logger.info("Will complete training with hyperparameter finetuning")
-    best_run = hyperparameter_finetuning(trainer, search_backend='optuna') # Optuna = default
-    # TODO - Add catch if other backend is not installed, e.g. ray / wandb
+    n_trials = cfg.tune_trials if hasattr(cfg, "tune_trials") else 10
+    best_run = hyperparameter_finetuning(trainer,
+                                         search_backend='optuna', # Optuna = default
+                                         n_trials = n_trials)
+    # TODO - Add catch if other backends are not installed, e.g. ray / wandb
 
     logger.info(f"Best hyperparameters found: {best_run}")
     if cfg.use_wandb:
@@ -134,25 +156,6 @@ def hf_trainer(cfg,
 
     logger.info("Retraining with best hyperparameters...")
     trainer.train()
-
-  else:
-    logger.info("Training commencing")
-    trainer.train()
-    logger.info("Training completed....")
-    if cfg.use_wandb:
-      wandb_run.log({"training results": trainer.evaluate(tokenized_train)})
-      results = trainer.evaluate()
-      best_ckpt_path = trainer.state.best_model_checkpoint
-      run_artifact.add_dir(local_path=best_ckpt_path, name="Best Model Checkpoint path for this run")
-      #run_artifact.add(results, name="Validation resuls")
-      run_artifact.save()
-      logger.info("Linking run to wandb registry")
-      wandb_run.log_artifact(run_artifact)
-      target_save_path=f"{cfg.logging.wandb.run.entity}/{cfg.logging.wandb.registry.registry_name}/{cfg.logging.wandb.registry.collection_name}"
-      logger.info(f"Target wandb registry path for this run is set at: {target_save_path}")
-      wandb_run.link_artifact(artifact=run_artifact,
-                              target_path=target_save_path,
-                              aliases=[cfg.model.name, cfg.data.name, checkpoint_size, "base model"]
-      )
-                            
-      logger.success("Artifact logged to registry")
+    logger.info("Evaluating model after finetuning")
+    results = trainer.evaluate()
+    print(results)

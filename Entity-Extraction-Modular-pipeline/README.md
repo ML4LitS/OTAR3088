@@ -81,19 +81,52 @@ WordB    O
 
 ## Information for HuggingFace pipeline
 
-The current huggingface finetunning wrapper supports loading data in `txt/conll` or `csv/tsv formats`. `csv/tsv` files are assumed to be in one of two structures:
+The current huggingface pipeline supports loading datasets directly from the Hugging Face Hub or from local files. Local files are assumed to be in `txt/conll` or `csv/tsv` formats. 
 
-- CoNLL-style: Two columns (token and label) separated by a delimiter, with blank lines indicating sentence boundaries(same as used for Flair model and shown above).
+Local datasets are expected in one of the following structures:
+- CoNLL-style:
+   - Two columns: token and label
+   - Delimited by spaces or tabs
+   - Blank lines separate sentences (Same format used for Flair NER models shown above)
 
-- Standard DataFrame format: Each row represents a sample, with one column containing a list of tokens and another containing a corresponding list of labels for the entire sentence/example.
+- Standard DataFrame format:
+   - Each row represents a single example
+   - One column stores a list of tokens
+   - Another column stores the corresponding labels
+     
   Example structure for such files:
   ``` text
   tokens,labels
     "['Neural','cells','can','be','derived','from','hESCs','either','by','direct','enrichment',.......]", "['B-CellType','I-CellType','O','O','O','O','B-CellType','O','O','O','O',.....]"
     ```
 
-    It is currently assumed that train, test, and validation (or dev) splits are present in the input data directory. Future improvements will include        support for optional test sets and direct loading of datasets from the Hugging Face Hub.
+### Dataset Loading in the HF Pipeline
 
+- Data is loaded through a dataloader that converts it into the format expected by Hugging Face models.
+- During training, only train and validation splits are parsed.
+- The test split is used for inference/evaluation only.
+- If your Hugging Face dataset provides all three splits, you’ll need to set a specific flag(`test_prepped` in your YAML config to load them correctly.
+- The pipeline also includes a utility to automatically generate YAML configs using `utils/yaml_generator.py`.
+
+### Generating a YAML Config
+
+The YAML script generator helps you create Hydra-compatible config files with OmegaConf.
+
+Example Usage(for generating a dataset yaml):
+
+```python utils/yaml_generator.py -o /path/to/save_config \
+    data.name=CeLLaTe \
+    hf_path=OTAR3088/CeLLaTe-V1-cleaned-split \
+    file_type: txt \
+    source_type: hf \
+    text_col: words \ 
+    label_col: labels \  
+```
+
+
+- `--output_path / -o`: Save location for the generated YAML.
+
+- Other parameters follow OmegaConf dotlist syntax
 
 ## Information on Configuration Management with Hydra
 
@@ -107,30 +140,44 @@ The primary configuration directory (`config/`) is structured into the following
    ``` yaml
    name: your_dataset_name
    version_name: your_dataset_name-v1 #optional 
-   data_folder: "path/to/folder/${.version_name}" #used for model trainining only. Note that path to folder is relative to where the main config folder(config/) sits.
+   data_folder: "path/to/folder/${.version_name}" #if local(else hf_path)
+   hf_path: data_path_on_hf e.g OTAR3088/CeLLaTe-V1-cleaned-split
 
-    #data preprocessing(optional)
+    #data preprocessing(optional)  --> used to generate validation split during training if not already present
     seed: 42
-    train_ratio: 0.6
-    input_dir: path/to/folder/raw_brat_folder #used for converting brat to conll in our pipeline
+    test_size: 0.3
     
-    #for hf
-    file_format: "txt"
-    train_file: "${.data_folder}/train.${.file_format}"
-    test_file: "${.data_folder}/test.${.file_format}"
-    val_file: "${.data_folder}/val.${.file_format}"
+    #used by hf data loader and preprocessing scripts
+    file_type: txt
+    source_type: hf
+    text_col: words #this is the name of your text col. Other common options used are: tokens, token, text
+    label_col: labels #this is the name of your ner/label col. Other common options used are: tags, ner_tags
    
    ```
 
 - `logging/`: This directory contains configurations for various logging backends.
   Example:
-  `logging/wandb.yaml`
+  `logging/other_loggers.yaml`
   ``` yaml
   wandb:
-      project: your_project_name 
-      dir: logs/${model.name} #custom logging name
-      entity: your_wandb_username                    
-      tags: ["${model.name}", "${data.name}", "ner", "hydra"]
+     run:
+         project: your_project_name 
+         dir: logs/${model.name} #custom logging name
+         entity: your_wandb_username                    
+         tags: ["${model.name}", "${data.name}", "ner", "hydra"]
+  
+     registry: #optional. Can be used to logging experiments outputs to specific registries/collections for added organisation
+        registry_name: CeLLaTe-Entities
+        collection_name: CeLLaTe-Models
+
+
+  loguru: #used for saving local log files
+     level: DEBUG
+     #rotation: 1 week
+     #retention: 2 months
+     log_dir: logs/${model.name}/${data.name}_${data.version_name}
+     log_filename: ${model.name}_${data.name}_model.log
+  
   ```
 
 - `models/`: This directory holds model-specific configurations (Flair, Hugging Face), including hyperparameters and architecture settings.
@@ -148,13 +195,13 @@ python main.py model=huggingface model.model_name_or_path=bert-base-cased data=m
 
 - `<dataset_name>`: Corresponds to a `.yaml` file in conf/data/ (e.g., my_dataset).
 
-- `<logger_name`>: Corresponds to a `.yaml` file in conf/logging/ (e.g., wandb, loguru).
+- `<logger_name`>: Corresponds to a `.yaml` file in conf/logging/ (e.g., other_loggers(where params related to wandb, loguru are stored).
 
 This setup allows hydra parse the current configuration to the script for running.
 
 Example training a flair model:
 ``` bash
-python main.py model=flair data=my_flair_data model.embeddings.model="bert-base-uncased"
+python main.py model=flair_config data=my_flair_data model.embeddings.model="bert-base-uncased" logging.wandb.entity="team_name" logging.wandb.project="otar3088"
 ```
 See [Flair documentation](https://flairnlp.github.io/docs/tutorial-embeddings/transformer-embeddings) for other supported embeddings type. 
 
@@ -162,15 +209,23 @@ See [Flair documentation](https://flairnlp.github.io/docs/tutorial-embeddings/tr
 Example training a huggingface model:
 
 ``` bash
-python main.py model=hf data=my_flair_data model.model_name_or_path="xlm-roberta-base" lr=2e-3
+python main.py model=hf_config data=my_data_yaml_name model.model_name_or_path="xlm-roberta-base" lr=2e-3 batch_size=32 
 ```
 
 
 
 ## Experiment Tracking with Weight and Bias
 
-- The pipeline supports various logging and experiment tracking with Weights & Biases (WandB). Thus, the pipeline will automatically log training metrics, model checkpoints, and configuration details to your WandB project. Ensure your `WANDB_TOKEN` environment variable is set.
-  To do this, you can add the following to a .env file:
+The pipeline includes optional support for experiment tracking with Weights & Biases. Controlled via the `use_wandb` flag in `common_config.yaml`.
+
+- When `use_wandb`: true → Training metrics, model checkpoints, and configuration details are automatically logged to your W&B project.
+
+- When `use_wandb`: false → No logging to W&B is performed
+
+
+To log correctly to W&B,  ensure your `WANDB_TOKEN` environment variable is set. To do this: 
+1. Get your API token from your W&B account settings if you don't already have it. 
+2. Add the API token to a `.env` file, located at the base directory(see example `.env` in this repository:
 
 ``` env
 WANDB_TOKEN="your_wandb_api_key_here"
@@ -184,11 +239,13 @@ load_dotenv()  # Optionally pass the path to your .env file
 import os
 WANB_TOKEN = os.environ.get("WANDB_TOKEN") #make sure the name matches what it was saved with in the .env file
 ```
-   This is already handled in `main.py` in the current pipeline , but make sure your .env file exists and contains the correct token.
+
+This is already handled in `main.py` in the current pipeline , but make sure your .env file exists and contains the correct token when `use_wandb` flag is set to `true`.
 
 
 
-- **Loguru** is also integrated for general-purpose application logging.
+### Logging via Loguru
+In addition to W&B, the pipeline integrates Loguru for structured application logging. Loguru provides clear and customizable logs for debugging and monitoring general pipeline behavior during training/inference. 
 
   
 
@@ -273,17 +330,25 @@ pip install -r requirements.txt
 3. Setup your Weight and Bias API key as shown in [Experiment Tracking with Weight and Bias](#experiment-tracking-with-weight-and-bias) section
 
 
+## Updates
+- Direct dataset loading from Hugging Face Hub is now supported.
+- Optional test split for Hugging Face datasets is integrated into the HF pipeline (note: Flair still requires all three splits: train, validation, test).
+- Expanded evaluation metrics using nervaluate, enabling fine-grained analysis of model performance, including:
+   - Partial matches
+   - Per-entity metrics
+   - Hallucinated/Spurrious entries
+   - Other task-specific insights
+
+- Inference script (`inference.py`) is now included in the pipeline for easy evaluation/inference using an already trained model and a test dataset
 
 ##  Future Enhancements
-- Future iterations of this pipeline are planned to include:
+Future iterations of this pipeline are planned to include:
 
-- Direct data loading from the Hugging Face Hub.
+- Advanced finetuning strategies such as Layerwise learning rate, Adaptive finetuning, Parameter efficient finetuning tricks, etc
 
-- Support for optional test sets for Hugging Face data.
-
-- Integration of additional evaluation metrics and visualisations.
-
-- Support for more model architectures and pre-trained models.
+- Support for Active learning/Human-in-the-loop
+  
+- Support for LLM prompting and finetuning.
 
 
 

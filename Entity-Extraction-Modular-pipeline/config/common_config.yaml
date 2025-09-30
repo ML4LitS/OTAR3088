@@ -2,8 +2,8 @@ defaults:
   - _self_
   - logging/hydra_config
   - logging: other_loggers
-  - model: flair_config
-  - data: cell-line-custom
+  - model: hf_config
+  - data: CeLLaTe_V1
   
 
 
@@ -11,12 +11,20 @@ defaults:
 
 task_type: "ner"
 seed: 3407
-num_epochs: 10
+num_epochs: 20
 batch_size: 16
 warmup_ratio: 0.1
 optimizer: "AdamW"
 eval_batch_size: 16
 lr: 2e-5
 
-
 use_wandb: true
+training_strategy: base #type of training strategy: Options[base, reinit_llrd, partial_freeze, peft]
+
+#reinit strategy parameters
+weight_decay: 0.01
+reinit_k_layers: 2
+reinit_classifier: false
+renit_pooler: false
+llrd: 0.9
+

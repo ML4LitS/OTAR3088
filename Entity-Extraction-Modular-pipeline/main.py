@@ -1,8 +1,8 @@
 
-from pipelines.model_pipelines import flair_pipeline
+from pipelines.model_pipelines.flair_models import flair_pipeline
 from pipelines.model_pipelines.hf_models import base_trainer
-#from pipelines.model_pipelines.hf_pipeline import data_loader
 from utils.helper_functions import create_output_dir, set_seed, setup_loguru
+from utils.wandb_utils import init_wandb_run
 
 from omegaconf import DictConfig, OmegaConf
 import hydra
@@ -16,29 +16,13 @@ import torch
 from dotenv import load_dotenv
 import os
 
-
+#set hydra to print full error trace useful for debugging. Comment out if not needed
 os.environ["HYDRA_FULL_ERROR"]="1"
+#force wandb cache dir to specific location as it could default to home directory which has limited space
+os.environ["WANDB_CACHE_DIR"]="./"
+#confirm wandb cache dir is set correctly
+print(os.environ["WANDB_CACHE_DIR"])
 
-def init_wandb_run(cfg:DictConfig):
-
-    plain_cfg = OmegaConf.to_container(cfg, resolve=True)
-    model_name = cfg.model.name.lower()
-    dataset_name = cfg.data.name.lower()
-    version_name = cfg.data.version_name
-    run = wandb.init(
-        name=f"{model_name}_{dataset_name}-{version_name}-{wandb.util.generate_id()}",
-        config=plain_cfg,
-        job_type="Model-Training",
-        **cfg.logging.wandb.run,
-        sync_tensorboard=True if model_name=="flair" else False
-    )
-    artifact = wandb.Artifact(
-        name=f"{model_name}_{dataset_name}-Training",
-        description=f"NER model training for {model_name} using {dataset_name}, version {version_name}",
-        type="model",
-        metadata={"Model architecture": model_name, "Dataset": dataset_name}
-    )
-    return run, artifact
 
 
 
@@ -67,24 +51,26 @@ def train_model(cfg: DictConfig):
 
     logger.info(f"Current device set as: {device}")
 
+    wandb_run, run_artifact = None, None
+    #disable wandb if not set to true in config
+    if not cfg.use_wandb:
+      os.environ["WANDB_MODE"] = "disabled"
+      logger.info(f"Logging to Wandb is disabled for this run. Local logs can be found at: {cfg.logging.loguru.log_dir}.")
+    
 
-    if cfg.use_wandb:
-    #init wandb
+    else:
+      #init wandb if set to true in config
       wandb_token = os.environ.get("WANDB_TOKEN")
       wandb.login(key=wandb_token)
-      wandb_run, run_artifact = init_wandb_run(cfg)
+      wandb_run, run_artifact = init_wandb_run(mode="train", cfg=cfg)
       logger.info(f"Logging to Wandb is enabled for this run. Run logs and metadata will be logged to: {cfg.logging.wandb.run.project}")
       wandb_run.log({"Current device for run" : device})
-    else:
-      wandb_run, run_artifact = None, None
-      logger.info(f"Logging to Wandb is disabled for this run. Local logs can be found at: {cfg.logging.loguru.log_dir}.")
-
     
 
     #init output dir for model logs and results
     output_dir = create_output_dir(base_path=BASE_PATH, name=f"{model_name}_{dataset_name}-{version_name}")
-    
 
+    #log current hydra output dir
     logger.info(f"Current Hydra output dir set at: {HydraConfig.get().runtime.output_dir}")
 
     
@@ -93,12 +79,11 @@ def train_model(cfg: DictConfig):
         flair_pipeline.flair_trainer(cfg, wandb_run, run_artifact, output_dir)
 
     elif model_name == "hf":
-        if cfg.model.training_type == "base":
-            base_trainer.hf_trainer(cfg, wandb_run, run_artifact, output_dir, device)
+        base_trainer.hf_trainer(cfg, wandb_run, run_artifact, output_dir, device)
     else:
         raise ValueError(f"Unsupported model type: {model_name}. Choose 'flair' or 'hf'.")
 
-    wandb_run.finish() if cfg.use_wandb else None
+    wandb_run.finish() if cfg.use_wandb and wandb_run is not None else None
 
 
 

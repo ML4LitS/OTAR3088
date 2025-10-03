@@ -6,7 +6,7 @@ import torch.nn as nn
 from torch.optim import AdamW
 from transformers import get_linear_schedule_with_warmup
 
-#from ..common.training_utils import get_encoder_layers, get_model_backbone
+
 from ..core.training_utils import (
                             prepare_datasets, 
                             prepare_training_args,
@@ -34,9 +34,9 @@ def __reinit_modules(module:nn.Module, initializer_range:float):
 
 def reinit_last_k_layers(model:nn.Module, k:int, reinit_classifier:bool=False, reinit_pooler:bool=False) -> nn.Module:
     """
-    Reinitialize the last k layers of a BERT model.
+    Reinitialize the last k layers of a BERT-like models.
     Args:
-        model (nn.Module): The BERT model to be reinitialised.
+        model (nn.Module): The BERT-like models to be reinitialised.
         k (int): The number of layers to be reinitialised.
         reinit_classifier (bool): Whether to reinitialise the classifier head.
         reinit_pooler (bool): Whether to reinitialise the pooler(not applicable to a Token Classification problem).

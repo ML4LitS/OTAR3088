@@ -1,6 +1,6 @@
 name: cell-finder
 version_name: "cellfinder_conll_v1"
-data_folder: "Datasets/${.version_name}" #used for model trainining only
+data_folder: "Datasets/${.version_name}" #used for model training only
 
 
 #data preprocessing

@@ -8,3 +8,5 @@ test_size: 0.3
 
 file_type: txt
 source_type: hf
+text_col: words
+label_col: labels

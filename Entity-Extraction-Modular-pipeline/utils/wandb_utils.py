@@ -1,0 +1,92 @@
+from typing import Optional, Dict
+from omegaconf import DictConfig, OmegaConf
+import wandb
+
+
+def init_wandb_run_train(
+    cfg: DictConfig,
+    run_name: Optional[str] = None,
+    job_type: str = "Training",
+    artifact_name: Optional[str] = None,
+    artifact_description: Optional[str] = None,
+    artifact_type: str = "model",
+    artifact_metadata: Optional[Dict] = None,
+):
+    """Initialize W&B run + artifact for training."""
+    plain_cfg = OmegaConf.to_container(cfg, resolve=True)
+
+    model_name = cfg.model.name.lower()
+    dataset_name = cfg.data.name.lower()
+    version_name = cfg.data.version_name
+
+    default_run_name = run_name or f"{model_name}_{dataset_name}-{version_name}-{wandb.util.generate_id()}"
+
+    run = wandb.init(
+        name=default_run_name,
+        job_type=job_type,
+        config=plain_cfg,
+        **cfg.logging.wandb.run,
+        sync_tensorboard=True if model_name == "flair" else False,
+    )
+
+    artifact = wandb.Artifact(
+        name=artifact_name or f"{model_name}_{dataset_name}-Training",
+        description=artifact_description
+        or f"NER model training for {model_name} using {dataset_name}, version {version_name}",
+        type=artifact_type,
+        metadata=artifact_metadata
+        or {"Model architecture": model_name, "Dataset": dataset_name, "Mode": "train"},
+    )
+
+    return run, artifact
+
+
+def init_wandb_run_inference(
+    run_config: Optional[Dict] = None,
+    run_name: Optional[str] = None,
+    job_type: str = "Inference",
+    artifact_name: Optional[str] = None,
+    artifact_description: Optional[str] = None,
+    artifact_type: str = "dataset",
+    artifact_metadata: Optional[Dict] = None,
+):
+    """Initialize W&B run + artifact for inference."""
+    default_run_name = run_name or f"inference-{wandb.util.generate_id()}"
+
+    run = wandb.init(
+        name=default_run_name,
+        job_type=job_type,
+        config=run_config,
+    )
+
+    artifact = wandb.Artifact(
+        name=artifact_name or "Inference-Run",
+        description=artifact_description or "Artifact generated during inference run.",
+        type=artifact_type,
+        metadata=artifact_metadata or {"Mode": "inference"},
+    )
+
+    return run, artifact
+
+
+def init_wandb_run(mode: str, **kwargs):
+    """
+    Wrapper for initializing W&B runs in either training or inference mode.
+
+    Args:
+        mode (str): "train" or "inference".
+        **kwargs: Arguments passed to the underlying train/inference init functions.
+
+    Returns:
+        run (wandb.Run): W&B run object.
+        artifact (wandb.Artifact): W&B artifact object.
+    """
+    mode = mode.lower()
+    if mode == "train":
+        if "cfg" not in kwargs:
+            raise ValueError("cfg must be provided when mode='train'")
+        return init_wandb_run_train(**kwargs)
+    elif mode == "inference":
+        return init_wandb_run_inference(**kwargs)
+    else:
+        raise ValueError("Invalid mode. Must be 'train' or 'inference'.")

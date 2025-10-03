@@ -1,19 +1,23 @@
-
+import math
 from typing import List, Dict, Tuple
 import numpy as np
 from collections import Counter
 from ast import literal_eval
 
+from omegaconf import DictConfig
 from loguru import logger
 from datasets import Dataset
 from seqeval.metrics import classification_report
 import evaluate
 
+import torch
 from transformers import (Trainer, 
                           TrainerCallback, 
                           AutoModelForTokenClassification, 
                           DataCollatorForTokenClassification, 
                           AutoTokenizer)
+
+from steps.tokenize_preprocess import tokenize_and_align
 
 
 
@@ -101,6 +105,7 @@ def count_entity_labels(dataset:Dataset, label_col:str) -> Counter:
   return label_counter_iob, label_counter_wo_iob
 
 
+
 def get_label2id_id2label(label_list:Dict) -> Tuple[Dict, Dict]:
 
   label2id = {label:i for i,label in enumerate(label_list)}
@@ -108,121 +113,15 @@ def get_label2id_id2label(label_list:Dict) -> Tuple[Dict, Dict]:
 
   return label2id, id2label
 
-def get_model(checkpoint:str,
-              num_labels:List,
-              label2id:Dict,
-              id2label:Dict,
-              device):
-  model = AutoModelForTokenClassification.from_pretrained(checkpoint,
-                                                          num_labels=num_labels,
-                                                          label2id=label2id,
-                                                          id2label=id2label
-                                                          )
-  model.to(device)
-  return model
-
 
 def init_tokenizer_data_collator(hf_checkpoint_name):
-   tokenizer = AutoTokenizer.from_pretrained(hf_checkpoint_name)
-   data_collator  = DataCollatorForTokenClassification(tokenizer=tokenizer)
+  "Initialises tokenizer, data collator and applies tokenization function to dataset"
+  tokenizer = AutoTokenizer.from_pretrained(hf_checkpoint_name)
+  data_collator  = DataCollatorForTokenClassification(tokenizer=tokenizer)
+  tokenize_fn = lambda batch: tokenize_and_align(batch, tokenizer=tokenizer)
 
-   return tokenizer, data_collator
-
-
-def differential_lr(base_lr, head_lr, model, num_layers):
-  
-  optimizer_grouped_parameters = [
-    {
-        'params': [p for p in model.bert.encoder.layer[:num_layers].parameters()], # Early layers
-        'lr': base_lr
-    },
-    {
-        'params': [p for p in model.bert.encoder.layer[num_layers:].parameters()], # Late layers
-        'lr': base_lr * 2  
-    },
-    {
-        'params': model.classifier.parameters(), # The classification head
-        'lr': head_lr
-    }
-    ]
-  return optimizer_grouped_parameters
+  return tokenizer, data_collator, tokenize_fn
+ 
 
 
 
-
-def get_encoder_layers(model):
-    """
-    Return (backbone_name, layer_list) for common architectures.
-    """
-    if hasattr(model, "bert"):
-        return "bert", model.bert.encoder.layer
-    if hasattr(model, "roberta"):
-        return "roberta", model.roberta.encoder.layer
-    if hasattr(model, "distilbert"):
-        return "distilbert", model.distilbert.transformer.layer
-    raise ValueError("Unsupported Bert backbone. Inspect model to find encoder layers.")
-
-
-def count_trainable_params(model):
-    return sum(p.numel() for p in model.parameters() if p.requires_grad)
-
-
-
-
-
-class CustomTrainer(Trainer):
-    def __init__(self, *args, id2label=None, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.epoch_predictions = []
-        self.epoch_labels = []
-        self.epoch_loss = []
-        self.id2label = id2label
-
-    def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
-        labels = inputs.get("labels")
-        outputs = model(**inputs)
-        logits = outputs.get("logits")
-
-        if labels is not None and logits is not None:
-            preds = logits.argmax(dim=-1)
-
-            # Store predictions and labels in seqeval format
-            for pred_seq, label_seq in zip(preds, labels):
-                pred_labels = [self.id2label[p.item()] for p, l in zip(pred_seq, label_seq) if l != -100]
-                true_labels = [self.id2label[l.item()] for p, l in zip(pred_seq, label_seq) if l != -100]
-
-                self.epoch_predictions.append(pred_labels)
-                self.epoch_labels.append(true_labels)
-
-        loss = outputs["loss"] if isinstance(outputs, dict) else outputs[0]
-        self.epoch_loss.append(loss.item())
-
-        return (loss, outputs) if return_outputs else loss
-
-
-
-class CustomCallback(TrainerCallback):
-    def __init__(self, trainer) -> None:
-        super().__init__()
-        self._trainer = trainer
-
-    def on_epoch_end(self, args, state, control, **kwargs):
-        metric = evaluate.load("seqeval")
-        preds = self._trainer.epoch_predictions
-        labels = self._trainer.epoch_labels
-        losses = self._trainer.epoch_loss
-
-        if preds and labels:
-
-            train_results = metric.compute(predictions=preds, references=labels)
-            mean_loss = np.mean(losses)
-
-            logger.info("\n======== Training Metrics on Epoch End ========")
-            logger.info(f"Train Loss: {mean_loss:.4f}")
-            logger.info(f"Training Results:\n {train_results}")
-            logger.info("=============================================")
-
-        # Reset storage for next epoch
-        self._trainer.epoch_predictions = []
-        self._trainer.epoch_labels = []
-        self._trainer.epoch_loss = []

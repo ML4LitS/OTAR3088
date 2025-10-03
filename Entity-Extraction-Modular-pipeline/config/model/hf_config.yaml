@@ -22,7 +22,7 @@ args:
   load_best_model_at_end: true
   metric_for_best_model: "eval_f1"
   greater_is_better: true
-  group_by_length: "True"
+  group_by_length: true
   #gradient_accumulation_steps: 4
   # max_grad_norm: 10
 
@@ -32,8 +32,5 @@ args:
   seed: ${seed}
 
 
-#dataset
-text_col: "words"
-label_col: "labels"
 
-training_type: "base"
+

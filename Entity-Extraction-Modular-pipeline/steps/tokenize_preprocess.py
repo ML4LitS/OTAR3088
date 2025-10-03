@@ -45,7 +45,7 @@ def filter_ent(ent_list: List[Dict]) -> List[Dict]:
     ]
 
 
-def tokenize_with_offsets(text: str, entities, nlp:scispacy=nlp):
+def tokenize_with_offsets(text: str, entities:List[Dict, Dict], nlp:scispacy=nlp):
     doc = nlp(text)
     sentences = []
     for sent in doc.sents:
@@ -69,8 +69,8 @@ def tokenize_with_offsets(text: str, entities, nlp:scispacy=nlp):
 
 
 def process_single_file_brat(file_id: str, input_dir: Path,
-                             do_filter=True,
-                             do_rename=True):
+                             do_filter:bool=True,
+                             do_rename:bool=True):
     """
     Process one BRAT-annotated document and return labeled tokenized sentences in IOB/BIO format.
     """
@@ -95,7 +95,7 @@ def process_single_file_brat(file_id: str, input_dir: Path,
 def convert2iob(
     data: Union[str, Dict, List[Dict]],
     entities: List[Dict] = None,
-    nlp=None
+    nlp:scispacy=nlp
 ) -> List[Dict]:
     """
     Convert sentence(s) and entities to IOB format.

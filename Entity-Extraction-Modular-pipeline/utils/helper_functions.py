@@ -13,8 +13,8 @@ import pandas as pd
 
 
 import torch
-from datasets import Dataset, DatasetDict, load_metric
-
+from datasets import Dataset, DatasetDict
+from loguru import logger
 from omegaconf import DictConfig
 
 
@@ -185,16 +185,23 @@ def setup_loguru(config:Optional[DictConfig]):
 
 def rename_labels(dataset: DatasetDict, map: Dict) -> DatasetDict:
   """
+  TODO - Function is not yet working, refactor to work with one row
+  of data at a time
+
   Intended for use as a hf Dataset.map() function
-  TODO - Generalise to remove map {}
+  Where-in there are labels to be renamed, and any rogue labels which
+  are not of interest for model training are safe to be removed.
 
   Example use:
-  renamed_dataset = dataset.map(rename_labels)
-  renamed_dataset["labels"]
+  (Declare label_map outside of this function)
+  label_map = {
+                "CELL": "CellType",
+                "TISSUE": "Tissue",
+                "CELL_LINE": "CellLine"
+            }
+  Then, use function like so:
+  renamed_dataset = dataset.map(lambda x: rename_labels(x, map=label_map))
   """
-  map = {"CELL": "CellType",
-       "TISSUE": "Tissue",
-       "CELL_LINE": "CellLine"}
 
   doc_labels = dataset["labels"]
   renamed = []

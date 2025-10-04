@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Dict, Optional, Union
 import re
 import random
+from ast import literal_eval
 
 import numpy as np
 import pandas as pd
@@ -223,3 +224,19 @@ def rename_labels(dataset: DatasetDict, map: Dict) -> DatasetDict:
           renamed.append(new_label)
     dataset["labels"] = renamed
   return dataset
+
+
+def convert_str_2_lst(col):
+    """
+    Converts a string representation of a list back to an actual list.
+    If the input is not a string representation of a list, it returns the input unchanged. 
+    Args:
+        col (a str or pandas Dataframe col): Input that may be a string representation of a list.
+    Returns:
+        list or any: The converted list if input was a string representation of a list, otherwise the original input.
+    """
+    if isinstance(col, str) and col.startswith("[") and col.endswith("]"):
+        logger.info("Column entry is a string representation of a list. Converting to list...")
+        return literal_eval(col)
+    else:
+        return col

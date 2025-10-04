@@ -1,16 +1,17 @@
-name: cell-finder
-version_name: "cellfinder_conll_v1"
+name: cellfinder_conll
+version_name: V1
 data_folder: "Datasets/${.version_name}" #used for model training only
+hf_path: OTAR3088/CellFinder_ner_split-V1
 
 
-#data preprocessing
-seed: 42
-train_ratio: 0.6
-input_dir: Datasets/cell-finder-raw/cellfinder1_brat 
+#data preprocessing to IOB format
+input_dir: Datasets/cellfinder_cleaned
+text_col: tokens
+label_col: tags
+ent_label_key: labels
+conll_filename: ${.version_name}
 
 
 #for hf
-file_format: "txt"
-train_file: "${.data_folder}/train.${.file_format}"
-test_file: "${.data_folder}/test.${.file_format}"
-val_file: "${.data_folder}/val.${.file_format}" 
+file_type: txt
+source_type: hf

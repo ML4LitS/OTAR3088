@@ -25,16 +25,16 @@ nlp.max_length = 10_000_000
 
 
 
-def flatten_singleton_labels(entities_lst, label_key="labels"):
+def flatten_singleton_labels(entities_lst, ent_label_key="labels"):
 
 
     if not isinstance(entities_lst, list):
         raise ValueError(f"Expected List of Dictionaries but got : {type(entities_lst)}")
     cleaned_entities_lst = []
     for ent in entities_lst:
-        if isinstance(ent, dict) and label_key in ent and isinstance(ent[label_key] , list) and len(ent[label_key]) == 1:
+        if isinstance(ent, dict) and ent_label_key in ent and isinstance(ent[ent_label_key] , list) and len(ent[ent_label_key]) == 1:
             cleaned_ent = ent.copy()
-            cleaned_ent[label_key] = cleaned_ent[label_key][0]
+            cleaned_ent[ent_label_key] = cleaned_ent[ent_label_key][0]
             cleaned_entities_lst.append(cleaned_ent)
         else:
             cleaned_entities_lst.append(ent)
@@ -65,6 +65,7 @@ def filter_ent(ent_list: List[Dict]) -> List[Dict]:
     ]
 
 
+
 def cast_to_class_labels(dataset:Dataset, label_col:str, text_col:str, unique_tags:List):
     features = dataset.features.copy()
     features[text_col] = Sequence(Value("string"))
@@ -74,7 +75,7 @@ def cast_to_class_labels(dataset:Dataset, label_col:str, text_col:str, unique_ta
     return dataset.cast(features)
 
 
-def tokenize_with_offsets(text: str, entities, label_key="label", nlp:scispacy=nlp):
+def tokenize_with_offsets(text: str, entities, ent_label_key="label", nlp:scispacy=nlp):
     doc = nlp(text)
     sentences = []
     for sent in doc.sents:
@@ -87,7 +88,7 @@ def tokenize_with_offsets(text: str, entities, label_key="label", nlp:scispacy=n
               sent_entities.append({
                  "start": ent["start"] - sent_start,
                   "end": ent["end"] - sent_start,
-                  "label": ent[label_key]
+                  "label": ent[ent_label_key]
             })
         sentences.append({
             "sentence": sent.text.strip(),
@@ -98,61 +99,94 @@ def tokenize_with_offsets(text: str, entities, label_key="label", nlp:scispacy=n
 
 
 def convert2iob(
-    data: Union[str, Dict, List[Dict]],
+    data: Union[str, Dict, List[Dict], pd.Series, pd.DataFrame],
     entities: List[Dict] = None,
-    nlp:scispacy=nlp
-) -> List[Dict]:
+    nlp:scispacy=nlp,
+    ent_label_key: str = "label",
+    return_hf: bool = False
+) -> Union[Dict, List[Dict], Dataset]:
     """
-    Convert sentence(s) and entities to IOB format.
-    
+    Convert sentences + entities into IOB format.
+
     Accepts:
-    - Single string + entities list
-    - Single dict: {"sentence": str, "entities": [...]}
-    - List of such dicts
-    
+    - text as single str and entities as list of dict e.g "Stem cells are amazing", [{"start": 0, "end": 10, "label": "CellType"}]
+    - dict with keys sentence(value:str), entities(value:list) e.g {"sentence": str, "entities": [...]}
+    - list of dicts(standard spacy annotation format): e.g `[{'sentence': 'Human embryonic stem cells.....','entities': [{'start':, 'end': , 'labels': '},{'start': , 'end': , 'labels': ''},....] 
+    - pandas row (Series) with 'sentence' and 'entities'. Can also be used as an apply function to a dataframe e.g `df.apply(lambda row: convert2iob(row), axis=1)`
+    - pandas DataFrame with 'sentence' and 'entities'. Pass dataframe directly as `convert2iob(df)
+
+    Args:
+        data: input data
+        entities: required only if `data` is a string
+        nlp: spaCy model (must be provided)
+        ent_label_key: which key holds entity labels ("label" or "labels")
+        return_hf: if True, returns HuggingFace Dataset object
+
     Returns:
-    List of dicts: [{'tokens': [...], 'tags': [...]}]
+        - HuggingFace Dataset if return_hf=True otherwise list of dicts: {"tokens":[], "tags":[]}
     """
-    
-    
+
+    if nlp is None:
+        raise ValueError("Please provide a loaded spaCy model to `nlp`")
+
+
+    results = None
+
     # Case 1: list of dicts
     if isinstance(data, list) and all(isinstance(item, dict) for item in data):
-        return [_process_sentence(item['sentence'], item['entities']) for item in data]
-    
+      results = [_process_sentence(item["sentence"], item["entities"], ent_label_key, nlp) for item in data]
+
     # Case 2: single dict
-    elif isinstance(data, dict) and 'sentence' in data and 'entities' in data:
-        return [_process_sentence(data['sentence'], data['entities'])]
-    
-    # Case 3: single string + entities
+    elif isinstance(data, dict) and "sentence" in data and "entities" in data:
+      results = [_process_sentence(data["sentence"], data["entities"], ent_label_key, nlp)]
+
+    # Case 3: pandas series
+    elif isinstance(data, pd.Series) and "sentence" in data and "entities" in data:
+      results = [_process_sentence(data["sentence"], data["entities"], ent_label_key, nlp)]
+
+    # Case 4: pandas DataFrame 
+    elif isinstance(data, pd.DataFrame):
+      if not {"sentence", "entities"}.issubset(data.columns):
+        raise ValueError("Expected DataFrame to contain 'sentence' and 'entities' columns")
+      results = [_process_sentence(row["sentence"], row["entities"], ent_label_key, nlp) for _, row in data.iterrows()]
+
+    # Case 5: raw string + entities
     elif isinstance(data, str) and entities is not None:
-        return [_process_sentence(data, entities)]
-    
+      results = [_process_sentence(data, entities, ent_label_key, nlp)]
+
     else:
-        raise ValueError("Unsupported input format for convert2iob()")
+      raise ValueError("Unsupported input format for convert2iob()")
+
+    # Convert to HF dataset if set to True
+    if return_hf:
+      return Dataset.from_list(results)
+
+    # Return single dict if only one item
+    return results if len(results) > 1 else results[0]
 
 
 
-def _process_sentence(sent: str, entities: List[Dict]) -> Dict:
-
+def _process_sentence(sent: str, ents: List[Dict], ent_label_key:str,nlp:scispacy) -> Dict:
     # Tokenize sentence
     doc = nlp(sent)
-    tokens = [token.text for token in doc]
-    offsets = [(token.idx, token.idx + len(token.text)) for token in doc]
+    tokens = [tok.text for tok in doc]
+    offsets = [(tok.idx, tok.idx + len(tok.text)) for tok in doc]
 
-    # Initialize all tags as 'O'
-    tags = ['O'] * len(tokens)
+    # Initialise all tags as 'O'
+    tags = ["O"] * len(tokens)
 
     # Assign IOB tags
-    for ent in entities:
-        start, end, entity = ent['start'], ent['end'], ent['label']
+    for ent in ents:
+        start, end = ent["start"], ent["end"]
+        entity = ent.get(ent_label_key)
+        if entity is None:
+            raise KeyError(f"Entity dict missing expected entity key '{ent_label_key}'")
+
         for i, (token_start, token_end) in enumerate(offsets):
             if token_start >= start and token_end <= end:
-                if token_start == start:
-                    tags[i] = f'B-{entity}'
-                else:
-                    tags[i] = f'I-{entity}'
+                tags[i] = f"B-{entity}" if token_start == start else f"I-{entity}"
 
-    return {'tokens': tokens, 'tags': tags}
+    return {"tokens": tokens, "tags": tags}
 
 
 
@@ -160,7 +194,6 @@ def _shift_label(label):
   if label % 2 == 1:
     label += 1
   return label
-
 
 
 def align_labels_with_tokens(labels, word_ids):
@@ -180,7 +213,6 @@ def align_labels_with_tokens(labels, word_ids):
 def tokenize_and_align(examples,
                        tokenizer,
                        *,
-                       #device=None,
                        tag_col='labels',
                        text_col='words'):
     tokenized_inputs = tokenizer(
@@ -202,6 +234,7 @@ def tokenize_and_align(examples,
 
 
 def process_single_file_brat(file_id: str, input_dir: Path,
+                             ent_label_key:str,
                              do_filter=True,
                              do_rename=True):
     """
@@ -214,27 +247,30 @@ def process_single_file_brat(file_id: str, input_dir: Path,
         return None
     text, entities = dataset[0]["text"], dataset[0]["entities"]
 
-    # text = clean_text(text)
     entities = rename_ent_cf(entities) if do_rename else entities
     entities = filter_ent(entities) if do_filter else entities
   
     tokenized_text = tokenize_with_offsets(text, entities)
 
-    iob_data = convert2iob(tokenized_text, entities, nlp)
+    iob_data = convert2iob(tokenized_text, ent_label_key)
 
     return iob_data
 
+
   
 def process_mult_file_brat(file_ids: List[str], 
-                        text_col: str, label_col: str,
+                        text_col: str, 
+                        label_col: str,
+                        ent_label_key:str,
                         input_dir: Path, output_dir: Path,
                         filename:Optional[str]):
     """
     Process multiple files from brat to conll
     Args:
         file_ids: List of file_ids/name without extension e.g [file1,file2,......, filez]
-        text_col: name of key in dict or column containing list of sentences/tokens. 
-        label_ocl: name of key in dict or column containing list of labels
+        text_col: name of key in dict or column containing list of sentences/tokens. e.g "words", "tokens"
+        label_col: name of key in dict or column containing list of entity labels e.g "tags", "ner_tags", "labels
+        ent_label_key: key in entity dict that holds the particular label info. e.g "label" or "labels"
         input_dir: Path to directory containing brat files
         output_dir: Path to directory to save generated conll file
 
@@ -242,8 +278,7 @@ def process_mult_file_brat(file_ids: List[str],
         None
     """
     for file_id in tqdm(file_ids, desc="Processing brat to conll"):
-        iob_sentences = process_single_file_brat(file_id, input_dir)
-        #print(iob_sentences)
+        iob_sentences = process_single_file_brat(file_id, input_dir, ent_label_key)
         if iob_sentences:
             write_to_conll(iob_sentences, text_col, label_col, output_dir, file_name=filename)
 

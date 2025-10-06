@@ -13,8 +13,6 @@ from .training_utils import (
                             CustomCallback
                             )
 
-
-
 from ..training_strategies.reinit_llrd import (apply_reinit, 
                                    apply_llrd
                             )  
@@ -46,7 +44,7 @@ def build_base_training_components(cfg:DictConfig, output_dir:str, device:str, u
     """
     
     #Load datasets + labels
-    train_dataset, val_dataset, unique_tags, label2id, id2label = prepare_datasets(cfg)
+    train_dataset, val_dataset, unique_tags, label2id, id2label = prepare_datasets(cfg, wandb_run)
 
     #Tokenize dataset
     tokenizer, data_collator, tokenize_fn = init_tokenizer_data_collator(cfg.model.model_name_or_path)
@@ -83,7 +81,7 @@ def build_base_training_components(cfg:DictConfig, output_dir:str, device:str, u
     "callbacks": [CustomCallback],
     "strategy_kwargs": {}
     }
-    logger.info("All training components for this run have been built successfully as below:/n{components}")
+    logger.info(f"All training components for this run have been built successfully as below:/n{components}")
     return components
 
 

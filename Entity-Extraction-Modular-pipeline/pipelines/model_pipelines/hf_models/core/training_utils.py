@@ -25,12 +25,12 @@ from utils.hf_utils import (
                             )
 
 
-def prepare_datasets(cfg:DictConfig) -> Tuple[Dataset, Dataset, List, Dict, Dict]:
+def prepare_datasets(cfg:DictConfig, wandb_run) -> Tuple[Dataset, Dataset, List, Dict, Dict]:
 
   train_dataset, val_dataset = data_loader(cfg.data)
-  text_col, label_col = cfg.data.text_col, cfg.data.label_col
-  train_entity_count_iob, _ = count_entity_labels(train_dataset, label_col)
-  val_entity_count_iob, _ = count_entity_labels(val_dataset, label_col)
+  text_col, label_col = train_dataset.column_names
+  train_entity_count_iob, train_entity_count_wo_iob = count_entity_labels(train_dataset, label_col)
+  val_entity_count_iob, val_entity_count_wo_iob = count_entity_labels(val_dataset, label_col)
 
   unique_tags = list(set(train_entity_count_iob.keys()) | set(val_entity_count_iob.keys()))
   label2id, id2label = get_label2id_id2label(unique_tags)
@@ -51,7 +51,6 @@ def prepare_datasets(cfg:DictConfig) -> Tuple[Dataset, Dataset, List, Dict, Dict
 
 
   return train_dataset, val_dataset, unique_tags, label2id, id2label
-
 
 
 

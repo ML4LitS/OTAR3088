@@ -67,8 +67,10 @@ def train_model(cfg: DictConfig):
       wandb_run.log({"Current device for run" : device})
     
 
-    #init output dir for model logs and results
-    output_dir = create_output_dir(base_path=BASE_PATH, name=f"{model_name}_{dataset_name}-{version_name}")
+     #init output dir for model logs and results
+    output_dir = create_output_dir(base_path=BASE_PATH, 
+                                  name=f"{dataset_name}_{version_name}", 
+                                  experiment_subfolder=f"{model_name}/{cfg.training_strategy}")
 
     #log current hydra output dir
     logger.info(f"Current Hydra output dir set at: {HydraConfig.get().runtime.output_dir}")

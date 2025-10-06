@@ -15,5 +15,5 @@ loguru:
   level: DEBUG
   #rotation: 1 week
   #retention: 2 months
-  log_dir: logs/${model.name}/${data.name}_${data.version_name}
+  log_dir: logs/${model.name}/${training_strategy}/${data.name}_${data.version_name}
   log_filename: ${model.name}_${data.name}_model.log

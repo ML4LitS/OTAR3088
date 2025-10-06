@@ -1,6 +1,7 @@
 
 from typing import List, Tuple, Dict, Union, Optional
 from pathlib import Path
+import pandas as pd
 
 import spacy
 import scispacy

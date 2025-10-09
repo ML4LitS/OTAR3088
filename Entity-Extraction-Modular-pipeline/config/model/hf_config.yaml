@@ -30,6 +30,7 @@ args:
   fp16: true #mixed precision for faster training on GPU
   report_to: "wandb"  # options["wandb", "tensorboard", etc].
   seed: ${seed}
+  data_seed: 42
 
 
 

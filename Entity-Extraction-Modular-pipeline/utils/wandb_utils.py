@@ -23,6 +23,7 @@ def init_wandb_run_train(
 
     run = wandb.init(
         name=default_run_name,
+        reinit=True,
         job_type=job_type,
         config=plain_cfg,
         **cfg.logging.wandb.run,
@@ -55,6 +56,7 @@ def init_wandb_run_inference(
 
     run = wandb.init(
         name=default_run_name,
+        reinit=True,
         job_type=job_type,
         config=run_config,
     )

@@ -38,7 +38,10 @@ def train_model(cfg: DictConfig):
     model_name = cfg.model.name.lower()
     dataset_name = cfg.data.name.lower()
     version_name = cfg.data.version_name
-
+    
+    #dynammically set logging directory per experiment type
+    if model_name == "hf":
+      cfg = get_logging_params(cfg)
     #init logger
     setup_loguru(cfg.logging)
 

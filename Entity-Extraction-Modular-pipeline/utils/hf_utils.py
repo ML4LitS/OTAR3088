@@ -123,5 +123,70 @@ def init_tokenizer_data_collator(hf_checkpoint_name):
   return tokenizer, data_collator, tokenize_fn
  
 
+def get_experiment_subfolder(cfg: DictConfig) -> str:
+    """
+    Construct a unique experiment subfolder path based on model type, 
+    training strategy, and experiment-specific parameters.
 
+    """
+    training_strategy = cfg.training_strategy.lower()
+    model_name = cfg.model.name
+    data_name = cfg.data.name
+    version_name = cfg.data.version_name
+
+    # Base folder: model/strategy
+    base_folder = f"{model_name}/{data_name}_{version_name}/{training_strategy}"
+
+    if training_strategy in ["reinit_only", "reinit_llrd"]:
+        experiment_subfolder = f"{base_folder}/{cfg.reinit_k_layers}K"
+
+        #Append classifier reinitialisation flag if activated
+        if getattr(cfg, "reinit_classifier", False):
+            experiment_subfolder += "_with_reinit_classifier"
+        else:
+            experiment_subfolder += "_no_reinit_classifier"
+
+        # Append LLRD value, if LLRD value not == 1.0, only true if training_strategy==reinit_llrd
+        llrd_value = cfg.llrd
+        if abs(llrd_value - 1.0) > 1e-6:
+            experiment_subfolder += f"_llrd{llrd_value}"
+
+    else:
+        #For base 
+        experiment_subfolder = base_folder
+
+    return experiment_subfolder
+
+
+def get_logging_params(cfg: DictConfig):
+  base_log_dir = f"logs/{cfg.model.name}/{cfg.data.name}_{cfg.data.version_name}/{cfg.training_strategy}"
+  base_log_filename = f"{cfg.training_strategy}-{cfg.data.name}_{cfg.data.version_name}"
+  base_wandb_dir = base_log_dir
+  wandb_tags = [f"{cfg.training_strategy}",f"{cfg.model.name}", f"{cfg.data.name}", "ner", "hydra"]
+
+  #For base training setup
+  if cfg.training_strategy == "base":
+    log_dir = base_log_dir  
+    log_filename = f"{base_log_filename}_model.log"
+  elif cfg.training_strategy in ["reinit_only", "reinit_llrd"]:
+    log_dir = base_log_dir
+    wandb_tags.append(f"{cfg.reinit_k_layers}K-Layers")
+    if getattr(cfg, "reinit_classifier", False):
+      log_dir = f"{log_dir}/with_reinit_classifier"
+      wandb_tags.append("with_reinit_classifier")
+    else:
+      log_dir = f"{log_dir}/without_reinit_classifier"
+      wandb_tags.append("without_reinit_classifier")
+    if hasattr(cfg, "reinit_llrd") and abs(cfg.reinit_llrd - 1.0) > 1e-6:
+      log_filename = f"{base_log_filename}_{cfg.reinit_k_layers}K_llrd-{cfg.reinit_llrd}_model.log"
+      wandb_tags.append(f"llrd-{cfg.reinit_llrd}")
+    else:
+      log_filename = f"{base_log_filename}_{cfg.reinit_k_layers}K_model.log"
+  cfg.logging.loguru.log_dir = log_dir
+  cfg.logging.loguru.log_filename = log_filename
+  cfg.logging.wandb.run.dir = log_dir
+  cfg.logging.wandb.run.tags = wandb_tags
+  logger.info(f"Log files for this run are saved to: {cfg.logging.loguru.log_dir}/{cfg.logging.loguru.log_filename}")
+
+  return cfg
 

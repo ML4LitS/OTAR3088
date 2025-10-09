@@ -107,21 +107,9 @@ def set_seed(seed: int):
         torch.backends.cudnn.benchmark = False
 
 
-# def parallel_process(df, func):
-#     data = [row for _,row in df.iterrows()]
-    
-
-#     # Initialize multiprocessing pool
-#     with Pool(cpu_count()) as pool:
-#         results = list(tqdm(pool.imap(func, data), total=len(data), desc="Processing rows"))
-
-#     # Convert back to DataFrame
-#     return pd.DataFrame(results)
-
-
-def create_output_dir(base_path:str, 
-                      name:str, 
+def create_output_dir(base_path:str,  
                       *, 
+                      name:str=None,
                       is_model:bool=True, 
                       is_datasets:bool=False,
                       include_type_dir:bool=True,
@@ -148,6 +136,8 @@ def create_output_dir(base_path:str,
         raise ValueError("Either `is_model` or `is_datasets` must be True.")
     if is_model and is_datasets:
         raise ValueError("Only one of `is_model` or `is_datasets` can be True at a time.")
+    if name is None and experiment_subfolder is None:
+        raise ValueError("Either Name or experiment subfolder must be provided")
   
 
     try:
@@ -162,7 +152,7 @@ def create_output_dir(base_path:str,
   
   
     try:
-        output_dir = base_path / subfolder / name 
+        output_dir = base_path / subfolder if experiment_subfolder else base_path / subfolder / name
         output_dir.mkdir(parents=True, exist_ok=True)
     
     except Exception as e:

@@ -1,5 +1,5 @@
 
-from .common.training_components import (
+from .core.training_components import (
                                             build_base_training_components,
                                             build_reinit_llrd_components, 
                                             )
@@ -12,6 +12,7 @@ from loguru import logger
 
 STRATEGIES = {
     "base": build_base_training_components,
+    "reinit_only": build_reinit_llrd_components,
     "reinit_llrd": build_reinit_llrd_components
 }
 
@@ -34,25 +35,28 @@ def hf_trainer(cfg, wandb_run, run_artifact, output_dir, device):
   #add custom callbacks if defined
   for callback in components.get("callbacks", []):
     trainer.add_callback(callback(trainer=trainer))
-
   logger.success("Trainer initialised")
   logger.info("Training commencing...")
   trainer.train()
   logger.info("Training completed...")
-
   logger.info("Running final evaluation on validation set...")
   results = trainer.evaluate()
   logger.info(f"Final evaluation results: {results}")
 
-  #log to wandb if enabled
-  if cfg.use_wand and wandb_run is not None:
-    wandb_run.log({"Training results on this run": trainer.evaluate(components["train_dataset"]),
+  if cfg.use_wandb:
+    wandb_run.log({"Training results on this run": trainer.evaluate(components["trainer_kwargs"]["train_dataset"]),
                   "Validation results on this run": results,
                   "Training strategy used": strategy,
                   "Best model checkpoint path": trainer.state.best_model_checkpoint,
                   
                   })
-
+    if cfg.reinit_classifier == True:
+      wandb_run.log({"Classifier reinitialised for this run"})
+    if strategy == "reinit_llrd":
+      wandb_run.log({
+        "LLrd value used for this run": cfg.llrd
+      })
+    
     #logging metadata to wandb artifact
     run_artifact.add_dir(local_path=trainer.state.best_model_checkpoint, name="best_model_checkpoint_path_for_run")
     run_artifact.save()

@@ -106,7 +106,7 @@ def build_reinit_llrd_components(cfg:DictConfig, output_dir:str, device:str, use
     
     #apply reinit if specified
     components["trainer_kwargs"]["model"] = apply_reinit(model=components["trainer_kwargs"]["model"], 
-                                                        cfg=cfg)
+                                                        config=cfg) #Flag: prev. 'cfg=cfg' caused error
     
     #apply llrd if specified
     optimizer, lr_scheduler = apply_llrd(cfg,

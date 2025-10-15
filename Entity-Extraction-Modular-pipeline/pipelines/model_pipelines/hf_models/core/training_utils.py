@@ -57,9 +57,11 @@ def prepare_datasets(cfg:DictConfig, wandb_run) -> Tuple[Dataset, Dataset, List,
 def prepare_training_args(cfg:DictConfig, output_dir:str):
   hf_checkpoint_name = cfg.model.model_name_or_path
   checkpoint_size = hf_checkpoint_name.split("/")[0]
+  report_to = "wandb" if cfg.use_wandb else "none"
   return TrainingArguments(
       output_dir=f"{output_dir}/{checkpoint_size}",
-      logging_dir=f"{output_dir}/{checkpoint_size}/{cfg.model.name}-{cfg.data.name}_logs",
+      logging_dir=f"{output_dir}/{checkpoint_size}/logs",
+      report_to = report_to,
       **cfg.model.args
   )
 

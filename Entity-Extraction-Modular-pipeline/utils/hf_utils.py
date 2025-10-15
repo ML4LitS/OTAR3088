@@ -170,7 +170,7 @@ def get_logging_params(cfg: DictConfig):
     base_log_dir = f"logs/{model_name}/{data_name}_{data_version}/{strategy}"
     base_log_filename = f"{strategy}-{data_name}_{data_version}-LR_{lr}"
     wandb_tags = [strategy, model_name, data_name, "ner", "hydra"]
-    wandb_run_name = f"{model_name}-{data_name}_{data_version}-{strategy}"
+    wandb_run_name = f"{model_name}-{data_name}_{data_version}-{strategy}-LR_{lr}"
     log_dir = base_log_dir
     log_filename = f"{base_log_filename}_model.log"
 

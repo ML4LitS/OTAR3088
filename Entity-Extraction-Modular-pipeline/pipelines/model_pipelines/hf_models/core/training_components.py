@@ -104,21 +104,43 @@ def build_reinit_llrd_components(cfg:DictConfig, output_dir:str, device:str, use
     #load base components
     components = build_base_training_components(cfg, output_dir, device, use_wandb, wandb_run, run_artifact)
     
-    #apply reinit if specified
-    components["trainer_kwargs"]["model"] = apply_reinit(model=components["trainer_kwargs"]["model"], 
-                                                        cfg=cfg)
-    
-    #apply llrd if specified
-    optimizer, lr_scheduler = apply_llrd(cfg,
-                                        components["trainer_kwargs"]["model"],
-                                        training_args=components["trainer_kwargs"]["args"],
-                                        train_dataset=components["trainer_kwargs"]["train_dataset"],
+    #define necessary params
+    model = components["trainer_kwargs"]["model"]
+    args = components["trainer_kwargs"]["args"]
+    train_dataset = components["trainer_kwargs"]["train_dataset"]
+    strategy = cfg.training_strategy.lower()
+
+    if strategy=="reinit_only":
+        model = apply_reinit(model=model, 
+                             config=cfg)
+    elif strategy=="llrd_only":
+        #apply llrd only if specified
+        optimizer, lr_scheduler = apply_llrd(cfg,
+                                        model=model,
+                                        training_args=args,
+                                        train_dataset=train_dataset,
                                         )
-    if optimizer is not None and lr_scheduler is not None:
-        components["strategy_kwargs"]["optimizers"] = (optimizer, lr_scheduler)
-    
+        if optimizer and lr_scheduler:
+            components["strategy_kwargs"]["optimizers"] = (optimizer, lr_scheduler)
+
+    elif strategy=="reinit_llrd":
+        model = apply_reinit(model=model, 
+                             config=cfg)
+
+        optimizer, lr_scheduler = apply_llrd(cfg,
+                                        model=model,
+                                        training_args=args,
+                                        train_dataset=train_dataset,
+                                        )
+        if optimizer and lr_scheduler:
+            components["strategy_kwargs"]["optimizers"] = (optimizer, lr_scheduler)
+
+    components['trainer_kwargs']['model'] = model
+    components["metadata"] = {
+        "strategy": cfg.training_strategy,
+        "llrd_factor": getattr(cfg, "llrd", cfg.llrd),
+        "reinit_layers": getattr(cfg, "reinit_k_layers", cfg.reinit_k_layers),
+        "reinit_classifier": getattr(cfg, "reinit_classifier", cfg.reinit_classifier)
+        }
+
     return components
-
-    
-
-        

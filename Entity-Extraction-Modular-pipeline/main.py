@@ -2,6 +2,7 @@
 from pipelines.model_pipelines.flair_models import flair_pipeline
 from pipelines.model_pipelines.hf_models import base_trainer
 from utils.helper_functions import create_output_dir, set_seed, setup_loguru
+from utils.hf_utils import get_logging_params
 from utils.wandb_utils import init_wandb_run
 from utils.hf_utils import get_experiment_subfolder, get_logging_params
 
@@ -17,14 +18,12 @@ import torch
 from dotenv import load_dotenv
 import os
 
-#set hydra to print full error trace useful for debugging. Comment out if not needed
+# set hydra to print full error trace useful for debugging. Comment out if not needed
 os.environ["HYDRA_FULL_ERROR"]="1"
 #force wandb cache dir to specific location as it could default to home directory which has limited space(condon-cluster specific issue)
 os.environ["WANDB_CACHE_DIR"]="./"
-#confirm wandb cache dir is set correctly
+# confirm wandb cache dir is set correctly
 print(os.environ["WANDB_CACHE_DIR"])
-
-
 
 
 @hydra.main(config_path="config", config_name="common_config", version_base=None)

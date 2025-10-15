@@ -17,7 +17,7 @@ eval_batch_size: 16
 lr: 2e-5 #options [1e-4, 5e-5]
 
 use_wandb: true
-training_strategy: base #type of training strategy: Options[base, reinit_only, reinit_llrd, partial_freeze, peft]
+training_strategy: reinit_only #type of training strategy: Options[base, reinit_only, reinit_llrd, partial_freeze, peft]
 
 #reinit strategy parameters
 weight_decay: 0.01

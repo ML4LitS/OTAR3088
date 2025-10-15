@@ -18,8 +18,9 @@ def init_wandb_run_train(
     model_name = cfg.model.name.lower()
     dataset_name = cfg.data.name.lower()
     version_name = cfg.data.version_name
+    training_strategy = cfg.training_strategy
 
-    default_run_name = run_name or f"{model_name}_{dataset_name}-{version_name}-{wandb.util.generate_id()}"
+    default_run_name = run_name or f"{model_name}_{dataset_name}-{wandb.util.generate_id()}"
 
     run = wandb.init(
         name=default_run_name,
@@ -31,12 +32,16 @@ def init_wandb_run_train(
     )
 
     artifact = wandb.Artifact(
-        name=artifact_name or f"{model_name}_{dataset_name}-Training",
+        name=artifact_name or f"{model_name}_{dataset_name}_{training_strategy}-Training",
         description=artifact_description
-        or f"NER model training for {model_name} using {dataset_name}, version {version_name}",
+        or f"NER model training for {model_name} using {dataset_name}, version {version_name} and strategy: {training_strategy}",
         type=artifact_type,
         metadata=artifact_metadata
-        or {"Model architecture": model_name, "Dataset": dataset_name, "Mode": "train"},
+        or {"Model architecture": model_name, 
+        "Dataset": dataset_name, 
+        "Mode": "train", 
+        "Strategy" : training_strategy
+        },
     )
 
     return run, artifact

@@ -3,6 +3,7 @@ from pipelines.model_pipelines.flair_models import flair_pipeline
 from pipelines.model_pipelines.hf_models import base_trainer
 from utils.helper_functions import create_output_dir, set_seed, setup_loguru
 from utils.wandb_utils import init_wandb_run
+from utils.hf_utils import get_experiment_subfolder, get_logging_params
 
 from omegaconf import DictConfig, OmegaConf
 import hydra
@@ -18,7 +19,7 @@ import os
 
 #set hydra to print full error trace useful for debugging. Comment out if not needed
 os.environ["HYDRA_FULL_ERROR"]="1"
-#force wandb cache dir to specific location as it could default to home directory which has limited space
+#force wandb cache dir to specific location as it could default to home directory which has limited space(condon-cluster specific issue)
 os.environ["WANDB_CACHE_DIR"]="./"
 #confirm wandb cache dir is set correctly
 print(os.environ["WANDB_CACHE_DIR"])
@@ -41,7 +42,7 @@ def train_model(cfg: DictConfig):
     
     #dynammically set logging directory per experiment type
     if model_name == "hf":
-      cfg = get_logging_params(cfg)
+      cfg, wandb_run_name = get_logging_params(cfg)
     #init logger
     setup_loguru(cfg.logging)
 
@@ -65,15 +66,16 @@ def train_model(cfg: DictConfig):
       #init wandb if set to true in config
       wandb_token = os.environ.get("WANDB_TOKEN")
       wandb.login(key=wandb_token)
-      wandb_run, run_artifact = init_wandb_run(mode="train", cfg=cfg)
+      run_kwargs = {"run_name": f"{wandb_run_name}-{wandb.util.generate_id()}"}
+      wandb_run, run_artifact = init_wandb_run(mode="train", cfg=cfg, **run_kwargs)
       logger.info(f"Logging to Wandb is enabled for this run. Run logs and metadata will be logged to: {cfg.logging.wandb.run.project}")
       wandb_run.log({"Current device for run" : device})
     
+    #init output dir for model logs and results
+    experiment_subfolder = get_experiment_subfolder(cfg)
 
-     #init output dir for model logs and results
     output_dir = create_output_dir(base_path=BASE_PATH, 
-                                  name=f"{dataset_name}_{version_name}", 
-                                  experiment_subfolder=f"{model_name}/{cfg.training_strategy}")
+                                  experiment_subfolder=experiment_subfolder)
 
     #log current hydra output dir
     logger.info(f"Current Hydra output dir set at: {HydraConfig.get().runtime.output_dir}")

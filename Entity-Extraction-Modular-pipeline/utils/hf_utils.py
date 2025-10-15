@@ -159,34 +159,57 @@ def get_experiment_subfolder(cfg: DictConfig) -> str:
 
 
 def get_logging_params(cfg: DictConfig):
-  base_log_dir = f"logs/{cfg.model.name}/{cfg.data.name}_{cfg.data.version_name}/{cfg.training_strategy}"
-  base_log_filename = f"{cfg.training_strategy}-{cfg.data.name}_{cfg.data.version_name}"
-  base_wandb_dir = base_log_dir
-  wandb_tags = [f"{cfg.training_strategy}",f"{cfg.model.name}", f"{cfg.data.name}", "ner", "hydra"]
-
-  #For base training setup
-  if cfg.training_strategy == "base":
-    log_dir = base_log_dir  
-    log_filename = f"{base_log_filename}_model.log"
-  elif cfg.training_strategy in ["reinit_only", "reinit_llrd"]:
+    """
+    Builds dynamic logging and tracking configurations for different training strategies.
+    Ensures consistency between Loguru and Weights & Biases logging directories.
+    """
+    strategy = cfg.training_strategy.lower()
+    model_name = cfg.model.name
+    lr = cfg.lr
+    data_name, data_version = cfg.data.name, cfg.data.version_name
+    base_log_dir = f"logs/{model_name}/{data_name}_{data_version}/{strategy}"
+    base_log_filename = f"{strategy}-{data_name}_{data_version}-LR_{lr}"
+    wandb_tags = [strategy, model_name, data_name, "ner", "hydra"]
+    wandb_run_name = f"{model_name}-{data_name}_{data_version}-{strategy}"
     log_dir = base_log_dir
-    wandb_tags.append(f"{cfg.reinit_k_layers}K-Layers")
-    if getattr(cfg, "reinit_classifier", False):
-      log_dir = f"{log_dir}/with_reinit_classifier"
-      wandb_tags.append("with_reinit_classifier")
-    else:
-      log_dir = f"{log_dir}/without_reinit_classifier"
-      wandb_tags.append("without_reinit_classifier")
-    if hasattr(cfg, "reinit_llrd") and abs(cfg.reinit_llrd - 1.0) > 1e-6:
-      log_filename = f"{base_log_filename}_{cfg.reinit_k_layers}K_llrd-{cfg.reinit_llrd}_model.log"
-      wandb_tags.append(f"llrd-{cfg.reinit_llrd}")
-    else:
-      log_filename = f"{base_log_filename}_{cfg.reinit_k_layers}K_model.log"
-  cfg.logging.loguru.log_dir = log_dir
-  cfg.logging.loguru.log_filename = log_filename
-  cfg.logging.wandb.run.dir = log_dir
-  cfg.logging.wandb.run.tags = wandb_tags
-  logger.info(f"Log files for this run are saved to: {cfg.logging.loguru.log_dir}/{cfg.logging.loguru.log_filename}")
+    log_filename = f"{base_log_filename}_model.log"
 
-  return cfg
+    if strategy == "base":
+        log_filename = f"{base_log_filename}_model.log"
+
+    elif strategy in ["reinit_only", "reinit_llrd"]:
+        wandb_run_name += f"-{cfg.reinit_k_layers}K-Layers"
+        wandb_tags.append(f"{cfg.reinit_k_layers}K-Layers")
+
+        if getattr(cfg, "reinit_classifier", cfg.reinit_classifier):
+            wandb_run_name += "-with_reinit_classifier"
+            log_dir = f"{log_dir}/with_reinit_classifier"
+            wandb_tags.append("with_reinit_classifier")
+        else:
+            wandb_run_name += "-no_reinit_classifier"
+            log_dir = f"{log_dir}/without_reinit_classifier"
+            wandb_tags.append("without_reinit_classifier")
+
+        if strategy == "reinit_llrd" and hasattr(cfg, "llrd") and abs(cfg.llrd - 1.0) > 1e-6:
+            log_filename = f"{base_log_filename}_{cfg.reinit_k_layers}K_LLRD-{cfg.llrd}_model.log"
+            wandb_run_name += f"-LLRD-{cfg.llrd}"
+            wandb_tags.append(f"LLRD-{cfg.llrd}")
+        else: #reinit-only
+            log_filename = f"{base_log_filename}_{cfg.reinit_k_layers}K_model.log"
+
+    elif strategy == "llrd_only":
+        if hasattr(cfg, "llrd") and abs(cfg.llrd - 1.0) > 1e-6:
+            log_filename = f"{base_log_filename}_llrd-{cfg.llrd}_model.log"
+            wandb_run_name += f"-LLRD-{cfg.llrd}"
+            wandb_tags.append(f"llrd-{cfg.llrd}")
+
+
+    cfg.logging.loguru.log_dir = log_dir
+    cfg.logging.loguru.log_filename = log_filename
+    cfg.logging.wandb.run.dir = log_dir
+    cfg.logging.wandb.run.tags = wandb_tags
+    #cfg.logging.wandb.run.name = wandb_run_name
+
+    logger.info(f"Log files for this run are saved to: {cfg.logging.loguru.log_dir}/{cfg.logging.loguru.log_filename}")
+    return cfg, wandb_run_name
 

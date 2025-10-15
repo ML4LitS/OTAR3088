@@ -13,6 +13,7 @@ from loguru import logger
 STRATEGIES = {
     "base": build_base_training_components,
     "reinit_only": build_reinit_llrd_components,
+    "llrd_only": build_reinit_llrd_components,
     "reinit_llrd": build_reinit_llrd_components
 }
 
@@ -47,14 +48,14 @@ def hf_trainer(cfg, wandb_run, run_artifact, output_dir, device):
     wandb_run.log({"Training results on this run": trainer.evaluate(components["trainer_kwargs"]["train_dataset"]),
                   "Validation results on this run": results,
                   "Training strategy used": strategy,
-                  "Best model checkpoint path": trainer.state.best_model_checkpoint,
-                  
+                  "Best model checkpoint path": trainer.state.best_model_checkpoint,              
                   })
-    if cfg.reinit_classifier == True:
+    if cfg.reinit_classifier:
       wandb_run.log({"Classifier reinitialised for this run"})
-    if strategy == "reinit_llrd":
+    if strategy in ["llrd_only", "reinit_llrd"]:
       wandb_run.log({
-        "LLrd value used for this run": cfg.llrd
+        "LLrd value used for this run": cfg.llrd,
+        "Extra run metadata": components["metadata"]
       })
     
     #logging metadata to wandb artifact

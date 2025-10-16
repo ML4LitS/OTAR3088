@@ -5,6 +5,7 @@ from .core.training_components import (
                                             )
 
 from .core.training_utils import CustomCallback, CustomTrainer
+from utils.helper_functions import set_seed
 from loguru import logger
 
 
@@ -27,6 +28,7 @@ def hf_trainer(cfg, wandb_run, run_artifact, output_dir, device):
   
   build_hf_training_components = STRATEGIES[strategy]
   logger.info(f"Training strategy for this run is set to: {strategy}")
+  set_seed(cfg.seed)
   components = build_hf_training_components(cfg, output_dir, device, cfg.use_wandb, wandb_run, run_artifact)
   
   #initialise trainer based on defined training strategy
@@ -70,7 +72,7 @@ def hf_trainer(cfg, wandb_run, run_artifact, output_dir, device):
     logger.info(f"Target wandb registry path for this run is set at: {target_save_path}")
     wandb_run.link_artifact(artifact=run_artifact,
                             target_path=target_save_path,
-                             aliases=[cfg.model.name, cfg.data.name, checkpoint_size, strategy]
+                             aliases=[cfg.model.name, cfg.data.name, f"{cfg.data.name}_{cfg.data.version_name}", checkpoint_size, strategy]
     )
                            
     logger.success("Artifact logged to registry")

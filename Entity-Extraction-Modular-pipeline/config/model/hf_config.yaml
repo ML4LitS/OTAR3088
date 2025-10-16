@@ -31,7 +31,7 @@ args:
   fp16: true #mixed precision for faster training on GPU 
   #report_to: #now directly pulled in hf_models/training_utils: `prepare_training_args func`. Uses cfg flag if wandb is set to true or not
   seed: ${seed}
-  data_seed: 42
+  data_seed: ${seed}
 
 
 

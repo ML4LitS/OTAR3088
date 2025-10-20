@@ -48,32 +48,23 @@ def init_wandb_run_train(
 
 
 def init_wandb_run_inference(
-    run_config: Optional[Dict] = None,
     run_name: Optional[str] = None,
     job_type: str = "Inference",
-    artifact_name: Optional[str] = None,
-    artifact_description: Optional[str] = None,
-    artifact_type: str = "dataset",
-    artifact_metadata: Optional[Dict] = None,
+    project: Optional[str] = None,
+    entity: Optional[str] = None,
 ):
     """Initialize W&B run + artifact for inference."""
     default_run_name = run_name or f"inference-{wandb.util.generate_id()}"
 
     run = wandb.init(
         name=default_run_name,
-        reinit=True,
         job_type=job_type,
-        config=run_config,
+        reinit=True,
+        project=project,
+        entity=entity
     )
 
-    artifact = wandb.Artifact(
-        name=artifact_name or "Inference-Run",
-        description=artifact_description or "Artifact generated during inference run.",
-        type=artifact_type,
-        metadata=artifact_metadata or {"Mode": "inference"},
-    )
-
-    return run, artifact
+    return run
 
 
 def init_wandb_run(mode: str, **kwargs):

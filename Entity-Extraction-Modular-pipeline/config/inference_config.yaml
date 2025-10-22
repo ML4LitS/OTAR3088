@@ -3,9 +3,9 @@ defaults:
   - logging/hydra_config
   - logging: other_loggers
 
-inference_dataset_path: OTAR3088/CellFinder_ner_all-V1 #dataset path: Local or HF
+inference_dataset_path: OTAR3088/CeLLaTe-V2-all #dataset path: Local or HF
 hf_model_path: null #dataset model path
-wandb_artifact_dir: ebi_literature/otar-3088/hf-CeLLaTe_V2-llrd_only-LR_2e-05-LLRD-0.95-Training:v0 #name of model artifact on wandb
+wandb_artifact_dir: ebi_literature/otar-3088/hf-CeLLaTe_V2-reinit_only-LR_2e-05-4K-Layers-no_reinit_classifier-Training:v0 #TODO - These naming methods haven't been fixed yet
 
 fetch_from_wandb: true #whether to load model from wandb
 fetch_from_hf: false #whether to load model from hf

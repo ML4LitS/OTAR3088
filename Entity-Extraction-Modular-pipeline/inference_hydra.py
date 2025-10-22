@@ -72,8 +72,7 @@ def run_inference(cfg:DictConfig):
 
     else:
       #init wandb if set to true in config
-        # wandb_token = os.environ.get("WANDB_TOKEN")
-        wandb_token = os.environ.get("536fcfd24841ee40f0107d4ba94bf247295d3cf3")
+        wandb_token = os.environ.get("WANDB_TOKEN")
         
         wandb.login(key=wandb_token)
         temp_run_name = f"Inference-{dataset_name}-{wandb.util.generate_id()}"

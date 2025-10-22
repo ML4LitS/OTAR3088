@@ -72,14 +72,16 @@ def run_inference(cfg:DictConfig):
 
     else:
       #init wandb if set to true in config
-        wandb_token = os.environ.get("WANDB_TOKEN")
+        # wandb_token = os.environ.get("WANDB_TOKEN")
+        wandb_token = os.environ.get("536fcfd24841ee40f0107d4ba94bf247295d3cf3")
+        
         wandb.login(key=wandb_token)
         temp_run_name = f"Inference-{dataset_name}-{wandb.util.generate_id()}"
         
         wandb_run = init_wandb_run(mode="Inference", 
                                 run_name=temp_run_name,
-                                project=cfg.logging.wandb.run.project,
-                                entity=cfg.logging.wandb.run.entity
+                                # project=cfg.logging.wandb.run.project,
+                                # entity=cfg.logging.wandb.run.entity
                                     )
         logger.info(f"Logging to Wandb is enabled for this run. Run logs and metadata will be logged to: {cfg.logging.wandb.run.project}")
 

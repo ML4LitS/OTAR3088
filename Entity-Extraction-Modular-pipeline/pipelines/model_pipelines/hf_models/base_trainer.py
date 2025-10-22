@@ -53,7 +53,7 @@ def hf_trainer(cfg, wandb_run, run_artifact, output_dir, device):
                   "Best model checkpoint path": trainer.state.best_model_checkpoint,              
                   })
     if cfg.reinit_classifier:
-      wandb_run.log({"Classifier reinitialised for this run"})
+      wandb_run.log({"Reinitialise classifier for this run set to": cfg.reinit_classifier})
     if strategy in ["llrd_only", "reinit_llrd"]:
       wandb_run.log({
         "LLrd value used for this run": cfg.llrd,

@@ -63,7 +63,8 @@ def train_model(cfg: DictConfig):
 
     else:
       #init wandb if set to true in config
-      wandb_token = os.environ.get("WANDB_TOKEN")
+      # wandb_token = os.environ.get("WANDB_TOKEN")
+      wandb_token = "536fcfd24841ee40f0107d4ba94bf247295d3cf3"
       wandb.login(key=wandb_token)
       run_kwargs = {"run_name": f"{wandb_run_name}-{wandb.util.generate_id()}", "artifact_name": f"{wandb_run_name}-Training"}
       wandb_run, run_artifact = init_wandb_run(mode="train", cfg=cfg, **run_kwargs)

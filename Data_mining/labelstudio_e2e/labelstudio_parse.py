@@ -22,6 +22,13 @@ paper_uids = {
         "40986340": "PMID",
         "40712580": "PMID"
 }
+<<<<<<< HEAD
+=======
+paper_uids = {
+    "PMC8494645": "PMCID",
+    "PMC8195859": "PMCID" #not available
+} # My papers
+>>>>>>> ac2051c5 (variant data processing)
 
 master_path = './output/labelstudio/master_dictionary.tsv' # Concatenated dictionary for pre-annotation
 
@@ -236,8 +243,13 @@ def main():
                 out_file.close()
             
             # Format for LabelStudio
+<<<<<<< HEAD
             annotated_path = f'./output/labelstudio/V4/{uid}_annotation.txt'
             ls_json_path = f'./output/labelstudio/V4/{uid}_annotation.json'
+=======
+            annotated_path = f'./output/labelstudio/sc/{uid}_annotation.txt'
+            ls_json_path = f'./output/labelstudio/sc/{uid}_annotation.json'
+>>>>>>> ac2051c5 (variant data processing)
             write_ls_textfile(input_text=fulltext, path_to_outfile=annotated_path)
             ls_formatter(
                 dict_file=master_path,

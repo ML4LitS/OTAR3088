@@ -22,13 +22,10 @@ paper_uids = {
         "40986340": "PMID",
         "40712580": "PMID"
 }
-<<<<<<< HEAD
-=======
+
 paper_uids = {
-    "PMC8494645": "PMCID",
-    "PMC8195859": "PMCID" #not available
-} # My papers
->>>>>>> ac2051c5 (variant data processing)
+        "PMC10287567": "PMCID"
+}
 
 master_path = './output/labelstudio/master_dictionary.tsv' # Concatenated dictionary for pre-annotation
 
@@ -120,13 +117,14 @@ def filter_tags(soup:bs) -> bs:
 
     # Tags to ignore by name
     tags2ignore = ['inline-formula', 'supplementary-material', 'ack', 'contrib-group', 
-                   "disclaimer","Disclosure",
+                   "disclaimer","Disclosure", "fig",
                    'sup', 'Acknowledgments','COI-statement']
     
     # Keywords indicating sections to be removed
     section_keywords = ['Disclaimer', 'author contributions', 
                        'Conflict of interest', "Publisher’s note", 
-                       'Supplementary information', "Supplementary material", "Disclosure", 
+                       'Supplementary information', "Supplementary material", "Disclosure",
+                       "Extended data", "Peer review information"
                        ]
 
     # Remove tags by name
@@ -199,12 +197,14 @@ def process_sections(soup: bs, uid: str) -> List:
                     processed_list.append((uid, title, section_title, paragraph_text))
             
             # Handle figure captions
-            for figure in section.find_all("fig", recursive=True):
+            figure_captions = section.find_all("fig", recursive=False)
+            print(figure_captions)
+            for figure in section.find_all("fig", recursive=False):
                 caption = figure.find("caption")
                 if caption:
                     caption_text = clean_text(caption.get_text(separator=" ").strip())
                     figure_title = f"{section_title} - Figure Caption"
-                    processed_list.append((uid, title, figure_title, caption_text))
+                    # processed_list.append((uid, title, figure_title, caption_text))
                 
 
         return processed_list
@@ -243,13 +243,8 @@ def main():
                 out_file.close()
             
             # Format for LabelStudio
-<<<<<<< HEAD
-            annotated_path = f'./output/labelstudio/V4/{uid}_annotation.txt'
-            ls_json_path = f'./output/labelstudio/V4/{uid}_annotation.json'
-=======
-            annotated_path = f'./output/labelstudio/sc/{uid}_annotation.txt'
-            ls_json_path = f'./output/labelstudio/sc/{uid}_annotation.json'
->>>>>>> ac2051c5 (variant data processing)
+            annotated_path = f'./output/labelstudio/no_fig/{uid}_annotation.txt'
+            ls_json_path = f'./output/labelstudio/no_fig/{uid}_annotation.json'
             write_ls_textfile(input_text=fulltext, path_to_outfile=annotated_path)
             ls_formatter(
                 dict_file=master_path,

@@ -4,6 +4,8 @@ Processing data from protein feature model, data sourced from figshare, under:
 Starting with v2.1 data due to authors concluding this data produced the best model
 """
 import argparse
+import csv
+import pandas as pd
 import polars as pl
 from os import listdir
 from typing import List, Optional
@@ -18,6 +20,37 @@ args = vars(parser.parse_args())
 
 file_type_map = {"tsv": "\t",
                  "csv": ","}
+
+
+def group_segments(df: pl.dataframe) -> pl.dataframe:
+    """
+    Group segments of text, split by 'null' / new line character.
+    Complies with downstream task requirements
+    """
+
+    # Create a group identifier: increment when word is null
+    df = df.with_columns([
+        pl.col('words').is_null().cum_sum().alias('group_id')
+    ])
+    
+    # Filter out the null rows (they were just separators)
+    df = df.filter(pl.col('words').is_not_null())
+    
+    # Group by group_id and aggregate words and labels into lists
+    grouped_df = df.group_by('group_id').agg([
+        pl.col('words').alias('words'),
+        pl.col('labels').alias('labels')
+    ]).sort('group_id')
+    
+    # Drop the group_id column (just used for grouping)
+    grouped_df = grouped_df.select(['words', 'labels'])
+
+    # To pandas for final formatting - drop rows with no mentions of keep_terms
+    grouped_df = grouped_df.to_pandas()
+    keep_terms = ['B-mutant', 'I-mutant']
+    filtered_df = grouped_df[grouped_df['labels'].apply(lambda x: any(item in keep_terms for item in x))]
+
+    return filtered_df
 
 def data_filtering(input_dir: str,
                    output_dir: str,
@@ -50,26 +83,36 @@ def data_filtering(input_dir: str,
                             separator=separator,
                             has_header=False
                         )
+        iob.columns = ["words", "labels"]
         
         # Unique values before filtering
-        # print(f"Unique tags before filtering: {iob['column_2'].unique().to_list()}")
+        # print(f"Unique tags before filtering: {iob['labels'].unique().to_list()}")
 
-        changes_count = iob.filter(~pl.col('column_2').is_in(allowed_types)).height # Items that will be changed
+        changes_count = iob.filter(~pl.col('labels').is_in(allowed_types)).height # Items that will be changed
         iob = iob.with_columns(
-            pl.when(pl.col("column_2").is_in(allowed_types))
-              .then(pl.col("column_2"))
+            pl.when(pl.col("labels").is_in(allowed_types))
+              .then(pl.col("labels"))
               .otherwise(pl.lit("O"))
-              .alias("column_2")
+              .alias("labels")
         )
 
         # Unique values after filtering
-        # print(f"Unique tags after filtering: {iob['column_2'].unique().to_list()}")
+        # print(f"Unique tags after filtering: {iob['labels'].unique().to_list()}")
+
+        # Format to list per segment of text, per row of df
+        iob = group_segments(iob)
+
+        # Write to parquet
+        iob = iob[['words', 'labels']]
+        iob.to_parquet(f"./output/{in_files[i][:-4]}.parquet")
 
         # Write to output directory
-        iob.write_csv(
+        iob.to_csv(
             f"./output/{in_files[i]}",
-            separator=file_type_map[file_type],
-            include_header=False
+            sep=file_type_map[file_type],
+            index=False,
+            quoting=csv.QUOTE_NONE,
+            escapechar='\\'
         )
 
         print(f"Processed file '{full_path}' with {changes_count} changes written to {output_dir}")

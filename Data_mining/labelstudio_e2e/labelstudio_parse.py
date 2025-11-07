@@ -1,4 +1,5 @@
 import requests
+import pandas as pd
 from typing import Dict, List
 import re
 from bs4 import BeautifulSoup as bs
@@ -118,7 +119,7 @@ def filter_tags(soup:bs) -> bs:
     # Tags to ignore by name
     tags2ignore = ['inline-formula', 'supplementary-material', 'ack', 'contrib-group', 
                    "disclaimer","Disclosure", "fig",
-                   'sup', 'Acknowledgments','COI-statement']
+                   'sup', 'Acknowledgments','COI-statement'] # Added fig to remove figure legends
     
     # Keywords indicating sections to be removed
     section_keywords = ['Disclaimer', 'author contributions', 
@@ -196,15 +197,15 @@ def process_sections(soup: bs, uid: str) -> List:
                 if paragraph_text:
                     processed_list.append((uid, title, section_title, paragraph_text))
             
-            # Handle figure captions
-            figure_captions = section.find_all("fig", recursive=False)
-            print(figure_captions)
-            for figure in section.find_all("fig", recursive=False):
-                caption = figure.find("caption")
-                if caption:
-                    caption_text = clean_text(caption.get_text(separator=" ").strip())
-                    figure_title = f"{section_title} - Figure Caption"
-                    # processed_list.append((uid, title, figure_title, caption_text))
+            # # Handle figure captions
+            # figure_captions = section.find_all("fig", recursive=False)
+            # print(figure_captions)
+            # for figure in section.find_all("fig", recursive=False):
+            #     caption = figure.find("caption")
+            #     if caption:
+            #         caption_text = clean_text(caption.get_text(separator=" ").strip())
+            #         figure_title = f"{section_title} - Figure Caption"
+            #         # processed_list.append((uid, title, figure_title, caption_text))
                 
 
         return processed_list
@@ -237,6 +238,10 @@ def main():
             fulltext_clean = filter_tags(soup)
             fulltext_clean_list = process_sections(fulltext_clean, uid)
             # peek_at_xml(fulltext_clean)
+            df = pd.DataFrame(data=fulltext_clean_list)
+            df = df.drop_duplicates(subset=[2], keep='first')
+            fulltext_clean_list = df.values.tolist()
+            df.to_csv(f"./output/labelstudio/no_fig/{uid}.csv")
             fulltext = paper_list_to_str(fulltext_clean_list)
             with open(f"./extracted_texts/{uid}.txt", "a") as out_file:
                 out_file.writelines(fulltext)

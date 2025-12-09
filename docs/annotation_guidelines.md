@@ -1,7 +1,7 @@
 Annotation Guidelines
 =====================
 
-* [index](../index.md)
+* [index](./index.md)
 
 Entity Type Definitions for NLP Recognition
 

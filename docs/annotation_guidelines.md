@@ -7,7 +7,7 @@ Entity Type Definitions for NLP Recognition
 
 ### "tissue"
 #### Definition: Supra-cellular anatomical entities (types of parts of the body and body substances, anatomical boundaries and spatial regions) from organisms within the Metazoa taxon (NCBITaxon:33208). 
-* Please, not that the definition above is a *very broad interpretation* of this entity type that includes all types of tissues, organs, organ systems or any other anatomical structures, spaces or body parts.
+* Please, note that the definition above is a *very broad interpretation* of this entity type that includes all types of tissues, organs, organ systems or any other anatomical structures, spaces or body parts.
 * The "supra-cellular" restriction distinguishes these tissue entities from their constituent "cell types", because they represent a higher level of organisation of cells together and connective tissues. 
 * The intended meaning of "tissue" in the present context does not include instances of excised pieces of anatomical parts of a body, *i.e.* a biopsy, specimen, or tissue sample, but rather it refers to the type of their anatomical site of origin. 
 * Note that there is some overlap between the use of the word "tissue" meaning a piece of excised tissue (a "biopsy", a "sample", i.e. some part of an anatomical entity), and a description which represents the source tissue (for example, a piece of tissue that is being used to characterise the cell type composition of the source tissue). 

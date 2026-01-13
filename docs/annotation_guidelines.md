@@ -19,6 +19,8 @@ Entity Type Definitions for NLP Recognition
     * "Intestinal biopsy samples …"
 * These annotations are to exclude terms which are part of a larger entity of a separate entity type. Prime examples of this would include tissues used in descriptors of indications like tumors / cancer, e.g. "lung adenocarcinoma". Another example would be the title of a database which contains a tissue name, e.g. "The Human Lung Cell Atlas". Biological process names that contain anatomical names (e.g. "heart contraction"); disease names that contain anatomical terms (e.g. "lung cancer") should be also excluded.
 
+TODO (Just noting for now before writing proper, for tissue / cell - Adding the inclusion of vague entity terms, with the reasoning to be as expansive in our capture of these entities as we can. Defining the way in which a tissue can be described as "different" from another with vague terms - "across all sections from the _tumor_ and _background tissue_" being an example here.
+
 #### Anatomical entity references
 * Anatomy textbooks, anatomy atlases
 * Uberon multi-species anatomy ontology [(Uberon)](https://www.ebi.ac.uk/ols4/ontologies/uberon)

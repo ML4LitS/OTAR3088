@@ -1,0 +1,39 @@
+  # Model & Tokenizer
+  
+name: "hf" 
+model_name_or_path: "bioformers/bioformer-16L" 
+
+# Training hyperparameters
+args:
+  learning_rate: ${lr}
+  per_device_train_batch_size: ${batch_size}
+  per_device_eval_batch_size: ${eval_batch_size}
+  num_train_epochs: ${num_epochs}
+  weight_decay: ${weight_decay}
+  warmup_ratio: ${warmup_ratio}
+  #warmup_steps: 500
+  lr_scheduler_type: linear
+  overwrite_output_dir: true
+
+  # Logging and evaluation
+  # logging_steps: 100
+  logging_strategy: "epoch"
+  eval_strategy: "epoch"
+  save_strategy: "epoch"
+  save_total_limit: 2
+  load_best_model_at_end: true
+  metric_for_best_model: "eval_f1"
+  greater_is_better: true
+  group_by_length: true
+  gradient_accumulation_steps: 4
+  # max_grad_norm: 10
+
+  # Optional params 
+  fp16: true #mixed precision for faster training on GPU 
+  #report_to: #now directly pulled in hf_models/training_utils: `prepare_training_args func`. Uses cfg flag if wandb is set to true or not
+  seed: ${seed}
+  data_seed: ${seed}
+
+
+
+

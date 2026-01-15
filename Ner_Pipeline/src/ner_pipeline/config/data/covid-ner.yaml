@@ -1,0 +1,12 @@
+name: covid-ner
+version_name: "covid-ner-V2"
+data_folder: "Datasets/${.version_name}" #used for model training only
+
+# No preprocessing needed
+
+#for hf
+file_format: "csv"
+source_type: "local"
+train_file: "${.data_folder}/train.${.file_format}"
+test_file: "${.data_folder}/test.${.file_format}"
+val_file: "${.data_folder}/devel.${.file_format}" 

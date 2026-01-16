@@ -1,9 +1,15 @@
-import requests
+import os
 import pandas as pd
-from typing import Dict, List
+import requests
 import re
+import time
+
+from dotenv import load_dotenv
 from bs4 import BeautifulSoup as bs
-from labelstudio_e2e import write_ls_textfile, ls_formatter
+from typing import Dict, List, Optional
+# from labelstudio_e2e import write_ls_textfile, ls_formatter
+
+load_dotenv()
 
 # Re-running with original cellate papers for annotation V3
 paper_uids = {
@@ -19,13 +25,10 @@ paper_uids = {
         "PMC12256823": "PMCID",
         "PMC12116388": "PMCID",
         "PMC12133578": "PMCID",
+        "PMC10287567": "PMCID",
         "33981032": "PMID",
         "40986340": "PMID",
         "40712580": "PMID"
-}
-
-paper_uids = {
-        "PMC10287567": "PMCID"
 }
 
 master_path = './output/labelstudio/master_dictionary.tsv' # Concatenated dictionary for pre-annotation
@@ -37,35 +40,99 @@ def peek_at_xml(soup: bs):
     print(content)
 
 
-def convert_pmid_pmcid(pmid: str):
+def convert_pmid_pmcid(pmid: str) -> Optional[str]:
     """
-    Query attempts so convert PMID to available PMCID, None if no conversion is possible
+    Query attempts to convert PMID to available PMCID, otherwise None
     """
     base_url = 'https://pmc.ncbi.nlm.nih.gov/tools/idconv/api/v1/articles/'
+
+    # Load credentials
+    api_key = os.getenv('NCBI_API_KEY')
+    email = os.getenv('NCBI_EMAIL', 'your.email@example.com')
     
     params = {
         'ids': pmid,
         'format': 'json',
         'idtype': 'pmid',
         'tool': 'python_sript',
-        'email': 'withers@ebi.ac.uk'
+        'email': email
+    }
+    
+    # Add API key to params
+    if api_key:
+        params['api_key'] = api_key
+    
+    # Headers for identification
+    headers = {
+        'User-Agent': f'YourApp/1.0 ({email})'
+    }
+
+    session = requests.Session()
+    session.headers.update(headers)
+    
+    max_retries = 5
+    for attempt in range(max_retries):
+        try:
+            response = session.get(base_url, params=params, timeout=10)
+            
+            # Handle rate limiting
+            if response.status_code == 429:
+                retry_after = int(response.headers.get('Retry-After', 60))
+                print(f"Rate limited. Waiting {retry_after}s (attempt {attempt+1}/{max_retries})")
+                time.sleep(retry_after)
+                continue
+            
+            response.raise_for_status()
+            break
+            
+        except requests.exceptions.RequestException as e:
+            if attempt == max_retries - 1:
+                print(f"Failed to convert PMID {pmid}: {e}")
+                return None
+            time.sleep(2 ** attempt)  # Backoff
+    
+    data = response.json()
+    if data.get('status') == 'ok' and data.get('records'):
+        return data['records'][0].get('pmcid')
+    return None
+
+
+def get_ppr_abstract(ppr_id: str) -> Optional[List]:
+    """
+    Querying for preprint article, using PPR identifier.
+    Does not assume presence of a PMCID / full text
+    """
+    base_url = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
+    query = f'EXT_ID:"{ppr_id}"'
+    
+    params = {
+        'query': query,
+        'resultType': 'core',
+        'pageSize': 1,
+        'format': 'json'
     }
     
     response = requests.get(base_url, params=params)
-    response.raise_for_status()
-    
     data = response.json()
     
-    if data.get('status') == 'ok' and data.get('records'):
-        record = data['records'][0]
-        pmcid = record.get('pmcid')
-        if pmcid != None:
-            print(f"PMID {pmid} mapped to PMCID {pmcid}")
-            return pmcid
-        else:
-            print(f"Unable to find PMCID for PMID {pmid}")
-            return pmcid
-    return None
+    if data['hitCount'] == 0:
+        print(f"No result for PPR {ppr_id}")
+        return None
+        
+    record = data['resultList']['result'][0]
+    abstract = clean_text(record.get('abstractText', '').strip())
+
+    #         'ppr_id': ppr_id,
+    #     'title': record.get('title', ''),
+    #     'authors': record.get('authorString', ''),
+    #     'doi': record.get('doi', ''),
+    #     'pub_date': record.get('firstPublicationDate', ''),
+    #     'abstract': abstract,
+    #     'pmcid': record.get('pmcid'),  # Optional full text
+    #     'journal': record.get('journalTitle', 'Preprint')
+    # }
+    
+    return [ppr_id, abstract]
 
 
 def get_epmc_full_text(uid: str, map: Dict) -> str:

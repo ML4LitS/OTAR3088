@@ -14,21 +14,11 @@ from datasets import Dataset
 #custom modules
 from utils.file_writers import write_to_conll
 from utils.file_readers import load_brat
-from iob_converter import SpacyIOBConverter, IOBConfig
-from entity_processor import sentencize_and_align_entity_spans, rename_ent, filter_ent, nlp
+from iob_converter import SpacyIOBConverter
+from entity_processor import sentencize_and_align_entity_spans, rename_ent, filter_ent
+from schemas.ner_params import BratConfig, IOBConfig, nlp
 
 
-
-@dataclass
-class BratConfig:
-  "Default configuration for processing BRAT files to IOB"
-  do_filter: bool = True
-  do_rename: bool = True
-  ent_label_key: str = "label"
-  text_col:str = "text"
-  label_col:str = "entities"
-  save_dest:Literal["hf", "local"] = "hf"
-  rename_map: Union[Dict[str, str], None] = field(default_factory=lambda: {"Anatomy": "Tissue"})
 
 
 @dataclass

@@ -4,11 +4,7 @@ from datasets.arrow_dataset import Column
 import spacy
 import scispacy
 
-
-
-nlp = spacy.load("en_core_sci_md", disable=["tagger", "parser", "ner", "lemmatizer", "attribute_ruler"]) 
-nlp.add_pipe("sentencizer")
-nlp.max_length = 10_000_000
+from schemas.ner_params import nlp
 
 
 
@@ -303,3 +299,28 @@ def sentencize_and_align_entity_spans(document: str, doc_annotations, label_fiel
             "entities": sent_entities
         })
     return sentence_annotations
+
+
+
+
+
+
+
+def convert_str_2_lst(col):
+    """
+    Converts a string representation of a list back to an actual list.
+    If the input is not a string representation of a list, it returns the input unchanged. 
+    Args:
+        col (a str or pandas Dataframe col): Input that may be a string representation of a list.
+    Returns:
+        list or any: The converted list if input was a string representation of a list, otherwise the original input.
+    Args:
+        col: a pandas Dataframe col or a list-like string
+    Returns:
+        A evaluated python list
+    """
+
+    if isinstance(col, str) and col.startswith("[") and col.endswith("]"):
+        return literal_eval(col)
+    else:
+        return col

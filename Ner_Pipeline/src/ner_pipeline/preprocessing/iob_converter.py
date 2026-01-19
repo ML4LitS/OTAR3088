@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from abc import ABC, abstractmethod
 from typing import List, Tuple, Dict, Union, Any
 import pandas as pd
 
@@ -8,28 +9,20 @@ from tqdm import tqdm
 
 from datasets import Dataset, DatasetDict
 from transformers import PreTrainedTokenizerBase, PreTrainedTokenizerFast
+from schemas.ner_params import IOBConfig, nlp
 
 
 
-nlp = spacy.load("en_core_sci_md", disable=["tagger", "parser", "ner", "lemmatizer", "attribute_ruler"]) 
-nlp.add_pipe("sentencizer")
-nlp.max_length = 10_000_000
 
-SpacyJsonOBJ = List[Dict[str, Any]]
-
-@dataclass
-class IOBConfig:
-  tokenizer_backend: spacy.language.Language | PreTrainedTokenizerBase | PreTrainedTokenizerFast
-  text_col: str
-  label_col: str
-  ent_label_key: str
-  as_hf_dataset: bool = False
+EntityDict = List[Dict[str, Any]]
 
 
-class IOBConverter:
+
+
+class IOBConverter(ABC):
   def __init__(
     self, 
-    data:Union[pd.Dataframe, SpacyJsonOBJ], 
+    data:Union[pd.Dataframe, EntityDict], 
     config: IOBConfig):
     self.data = data
     self.config = config
@@ -49,14 +42,14 @@ class IOBConverter:
       if missing_key:
         raise KeyError(f"Missing required entity dict key(s): {missing_key}")
     
-    
+  @abstractmethod
   def _tokenize_with_offsets(self, sentence: str):
         raise NotImplementedError(
             f"{self.__class__.__name__} must implement _get_tokens_offsets()"
         )
 
 
-  def _process_single_sentence(self, sentences:str, entities:SpacyJsonOBJ):
+  def _process_single_sentence(self, sentences:str, entities:EntityDict):
     self._validate_entity_schema(entities)
     tokens, offsets = self._tokenize_with_offsets(sentences)
     iob_tags = ["O"] * len(tokens)
@@ -108,7 +101,7 @@ class IOBConverter:
 class SpacyIOBConverter(IOBConverter):
   def __init__(
     self,
-    data:Union[pd.Dataframe, SpacyJsonOBJ], 
+    data:Union[pd.Dataframe, EntityDict], 
     config: IOBConfig
     )-> Union[Dataset, DatasetDict, List[Dict[List[str], List[str]]]]:
     super().__init__(data, config)
@@ -124,7 +117,7 @@ class SpacyIOBConverter(IOBConverter):
 class HFIOBConverter(IOBConverter):
   def __init__(
     self,
-    data:Union[pd.Dataframe, SpacyJsonOBJ], 
+    data:Union[pd.Dataframe, EntityDict], 
     config: IOBConfig
     )-> Union[Dataset, DatasetDict, List[Dict[List[str], List[str]]]]:
     super().__init__(data, config)

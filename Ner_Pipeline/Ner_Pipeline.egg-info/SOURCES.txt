@@ -1,0 +1,6 @@
+README.md
+setup.py
+Ner_Pipeline.egg-info/PKG-INFO
+Ner_Pipeline.egg-info/SOURCES.txt
+Ner_Pipeline.egg-info/dependency_links.txt
+Ner_Pipeline.egg-info/top_level.txt

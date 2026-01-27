@@ -279,7 +279,21 @@ __RENAME_REGISTRY = {"hf_iob": __rename_hf_iob,
 
 
 def sentencize_and_align_entity_spans(document: str, doc_annotations, label_field="label", nlp:scispacy=nlp):
-    "This sentencises and aligns sentence offsets with entities dict"
+    """
+    Sentencizes a document and aligns entity annotations to the new sentence-level offsets.
+
+    Args:
+        document (str): The full text document.
+        doc_annotations (List[Dict[str, Any]]): A list of entity dictionaries,
+            each with 'start', 'end', 'label', and 'text' keys, relative to the document.
+        label_field (str, optional): The key in the entity dictionary that holds the label.
+            Defaults to 'label'.
+        nlp_model (spacy.language.Language): The spaCy language model for sentencization.
+
+    Returns:
+        List[Dict[str, Any]]: A list of dictionaries, where each dictionary represents
+        a sentence with its text and aligned entities (offsets relative to the sentence).
+    """
     doc = nlp(document)
     sentence_annotations = []
     for sent in doc.sents:

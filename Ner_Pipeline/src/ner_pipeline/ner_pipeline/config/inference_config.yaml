@@ -1,0 +1,21 @@
+defaults:
+  - _self_
+  - logging/hydra_config
+  - logging: other_loggers
+
+inference_dataset_path: OTAR3088/CellFinder_ner_all-V1 #dataset path: Local or HF
+hf_model_path: null #dataset model path
+wandb_artifact_dir: ebi_literature/otar-3088/hf-CeLLaTe_V2-llrd_only-LR_2e-05-LLRD-0.95-Training:v0 #name of model artifact on wandb
+
+fetch_from_wandb: true #whether to load model from wandb
+fetch_from_hf: false #whether to load model from hf
+output_dir: null #wandb logging dir, hf reulst output dir
+label_col: tags #name of column containing label list
+text_col: tokens #name of column containing tokens list
+
+
+seed: 3407 
+data_seed: $seed
+batch_size: 16
+
+use_wandb: true #wheter to log and use wandb

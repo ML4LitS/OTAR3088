@@ -15,7 +15,7 @@ hydra:
         file:
           class: logging.FileHandler
           formatter: simple
-          filename: logs/${hydra:runtime.choices.model}/hydra.log
+          filename: ../logs/${hydra:runtime.choices.model}/hydra.log
       root:
         handlers: [file]
         level: DEBUG

@@ -1,10 +1,10 @@
 # config/logging/other-loggers.yaml
 wandb:
   run:
-    project: otar-3088
-    dir: logs/${model.name}/${data.name}_${data.version_name}
-    entity: ebi_literature                    
-    tags: ["${model.name}", "${data.name}", "ner", "hydra"]
+    project: otar-3088    #testing-otar
+    dir: logs/${training_strategy}/${model.name}/${data.name}_${data.version_name}
+    entity:  ebi_literature    #"Mardiyyah"                     
+    tags: ["${training_strategy}","${model.name}", "${data.name}", "ner", "hydra"]
     
   registry:
     registry_name: CeLLaTe-Entities

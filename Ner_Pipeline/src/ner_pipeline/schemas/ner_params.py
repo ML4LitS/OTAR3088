@@ -4,7 +4,7 @@ from typing import Literal, Union, Dict, Any, TypedDict, List
 import spacy
 
 from transformers import PreTrainedTokenizerBase, PreTrainedTokenizerFast
-
+from ..utils.common import inherit_docstring
 
 
 
@@ -30,21 +30,20 @@ NerDataset = List[SentenceNerRecord]
 
 @dataclass
 class RawNerSchema:
-  """
-  Defines the schema of NER dataset prior to preprocessing.
+    """
+    Defines the schema of NER dataset prior to preprocessing.
 
-  Attributes:
-      text_field: Column or field containing sentence or document text
-      label_field: Column or field containing raw entity annotations
-      entity_label_key: Key inside entity dict that stores the entity class
-  """
-  text_col: str
-  label_col: str
-  ent_label_key: str
-
-
+    Attributes:
+        text_col: Name of Column or field containing sentence or document text
+        entity_col: Name of Column or field containing raw entity annotations dict
+        ent_label_key: Key inside entities column dict that stores the entity class
+    """
+    text_col: str
+    entity_col: str
+    ent_label_key: str
 
 
+@inherit_docstring(RawNerSchema)
 @dataclass
 class BratConfig(RawNerSchema):
   "Default configuration for processing BRAT files to IOB"
@@ -54,7 +53,7 @@ class BratConfig(RawNerSchema):
   save_dest: Literal["hf", "local"] = "hf"
   rename_map: Union[Dict[str, str], None] = field(default_factory=lambda: {"Anatomy": "Tissue"})
 
-
+@inherit_docstring
 @dataclass
 class IOBConfig:
   """

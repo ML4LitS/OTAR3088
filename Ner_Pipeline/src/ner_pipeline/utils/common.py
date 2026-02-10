@@ -1,22 +1,29 @@
+
+from __future__ import annotations
+
 import requests
 from requests.exceptions import HTTPError, RequestException
 import functools
 import tarfile
 from pathlib import Path
-from typing import Dict, Optional, Union
+from typing import Optional, Union, List, Dict
 import re
+import os
+import sys
 import random
 from ast import literal_eval
-
-import numpy as np
-import pandas as pd
-
 
 
 import torch
 from datasets import Dataset, DatasetDict
+
+
+import numpy as np
+import pandas as pd
+
 from loguru import logger
 from omegaconf import DictConfig
+import wandb
 
 
 ##missing typ int and docstrings for some func
@@ -83,28 +90,35 @@ def clean_text(text:str) -> str:
     return text
 
 
-def push_to_hub(
-    dataset: Union[Dataset, DatasetDict],
-    repo_name: str,
-    private_repo: bool = False,
-    token: str = None,
-    split_name: str = None,
-):
-    pass
-
-
-
 
 def set_seed(seed: int):
     """Ensure reproducibility across Python, NumPy, and PyTorch"""
+    os.environ["PYTHONHASHSEED"] = str(seed)
     random.seed(seed)
     np.random.seed(seed)
-    torch.manual_seed(seed)
+    torch.manual_seed(seed) 
     if torch.cuda.is_available():
         torch.cuda.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
+
+    # try:
+    #     torch.use_deterministic_algorithms(True)
+    # except Exception as e:
+    #     logger.info(f"Warning: deterministic algorithms not fully enforced ({e})")
+
+
+# def parallel_process(df, func):
+#     data = [row for _,row in df.iterrows()]
+    
+
+#     # Initialize multiprocessing pool
+#     with Pool(cpu_count()) as pool:
+#         results = list(tqdm(pool.imap(func, data), total=len(data), desc="Processing rows"))
+
+#     # Convert back to DataFrame
+#     return pd.DataFrame(results)
 
 
 def create_output_dir(base_path:str,  
@@ -159,12 +173,10 @@ def create_output_dir(base_path:str,
         raise RuntimeError(f"Failed to create output directory at {output_dir}") from e
     print(f"Output directory created at {output_dir}")
     return output_dir
-    
 
-def setup_loguru(config:Optional[DictConfig]):
-    """Setup loguru to a central directory if specified in hydra config or 
-    default to current directory(useful for inference only)
-    """
+
+def setup_loguru(config: Optional[DictConfig]):
+    "Setup loguru to a central directory if specified in hydra config or default to current directory(useful for inference only)"
     log_dir = Path(config.loguru.log_dir) if config and "loguru" in config else Path.cwd()
     print(log_dir)
     log_filename = config.loguru.log_filename if config and "loguru" in config else "run.log"
@@ -183,47 +195,52 @@ def setup_loguru(config:Optional[DictConfig]):
     logger.success(f"Loguru initialised at: {log_path}")
 
 
+# def login_to_wandb(key:wandb,
+#                   relogin: Optional[bool] = False,
+#                   verify: Optional[bool] = True):
+   
+#    wandb.login(
+#                key=key,
+#                relogin=relogin,
+#                verify=verify
+#                )
 
-def rename_labels(dataset: DatasetDict, map: Dict) -> DatasetDict:
-  """
-  TODO - Function is not yet working, refactor to work with one row
-  of data at a time
 
-  Intended for use as a hf Dataset.map() function
-  Where-in there are labels to be renamed, and any rogue labels which
-  are not of interest for model training are safe to be removed.
+def rename_ent(
+    ent_list: Union[List[str], List[Dict]],
+    rename_map: Dict[str, str]
+) -> Union[List[str], List[Dict]]:
+    """
+    Renames multiple entity labels in a list of IOB tags (List[str]) or entity dicts (List[Dict]).
 
-  Example use:
-  (Declare label_map outside of this function)
-  label_map = {
-                "CELL": "CellType",
-                "TISSUE": "Tissue",
-                "CELL_LINE": "CellLine"
-            }
-  Then, use function like so:
-  renamed_dataset = dataset.map(lambda x: rename_labels(x, map=label_map))
-  """
+    Args:
+        ent_list: List of entity labels (str) or entity dicts.
+        rename_map: Dictionary mapping old entity names to new ones.
+                    Example: {"CELL": "CellType", "TISSUES": "Tissues"}
 
-  doc_labels = dataset["labels"]
-  renamed = []
-  for label in doc_labels:
-    if label == "O":
-      # No change
-      renamed.append(label)
-    elif "-" in label:
-      # Split BIO from label
-      bio, text = label.split("-")
-      if text not in map.keys():
-        renamed.append("O")
-      for og in map:
-        if og == text:
-          # Grab new label
-          new = map[og]
-          # Replace
-          new_label = bio + "-" + new
-          renamed.append(new_label)
-    dataset["labels"] = renamed
-  return dataset
+    Returns:
+        Updated list with renamed entities.
+    """
+    if all(isinstance(ent, str) for ent in ent_list):  # IOB tag format
+        new_list = []
+        for tag in ent_list:
+            if tag == "O":
+                new_list.append(tag)
+            else:
+                prefix, label = tag.split("-", 1)
+                new_label = rename_map.get(label, label)
+                new_list.append(f"{prefix}-{new_label}")
+        return new_list
+
+    elif all(isinstance(ent, dict) for ent in ent_list):  # Dict format
+        return [
+            {**ent, "label": rename_map.get(ent["label"], ent["label"])}
+            for ent in ent_list
+        ]
+
+    else:
+        raise TypeError("Input must be List[str] or List[Dict] only.")
+    
 
 
 def convert_str_2_lst(col):
@@ -234,8 +251,22 @@ def convert_str_2_lst(col):
         col (a str or pandas Dataframe col): Input that may be a string representation of a list.
     Returns:
         list or any: The converted list if input was a string representation of a list, otherwise the original input.
+    Args:
+        col: a pandas Dataframe col or a list-like string
+    Returns:
+        A evaluated python list
     """
+
     if isinstance(col, str) and col.startswith("[") and col.endswith("]"):
         return literal_eval(col)
     else:
         return col
+
+
+def inherit_docstring(parent_class):
+  def fetch_docstring(child_class):
+    if parent_class.__doc__:
+        child_doc = child_class.__doc__ if child_class.__doc__ else "" 
+        child_class.__doc__ = f"{parent_class.__name__}({parent_class.__doc__})\n\n{child_doc}"
+    return child_class
+  return fetch_docstring

@@ -1,8 +1,9 @@
   # Model & Tokenizer
   
-name: "hf" 
-model_name_or_path: "bioformers/bioformer-16L" 
+#name: "hf" 
+model_name_or_path: microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext
 
+classifier_dropout: 0.01
 # Training hyperparameters
 args:
   learning_rate: ${lr}
@@ -11,6 +12,7 @@ args:
   num_train_epochs: ${num_epochs}
   weight_decay: ${weight_decay}
   warmup_ratio: ${warmup_ratio}
+  dataloader_num_workers: 0
   #warmup_steps: 500
   lr_scheduler_type: linear
   overwrite_output_dir: true
@@ -20,19 +22,24 @@ args:
   logging_strategy: "epoch"
   eval_strategy: "epoch"
   save_strategy: "epoch"
-  save_total_limit: 2
+  save_total_limit: null 
   load_best_model_at_end: true
   metric_for_best_model: "eval_f1"
   greater_is_better: true
   group_by_length: true
-  gradient_accumulation_steps: 4
+  full_determinism: false
+  do_train: true
+  #gradient_accumulation_steps: 4
   # max_grad_norm: 10
 
   # Optional params 
   fp16: true #mixed precision for faster training on GPU 
-  #report_to: #now directly pulled in hf_models/training_utils: `prepare_training_args func`. Uses cfg flag if wandb is set to true or not
+  #report_to: "none"  # options["wandb", "tensorboard", etc].
   seed: ${seed}
   data_seed: ${seed}
+  push_to_hub: false
+  push_to_hub_token: "" 
+
 
 
 

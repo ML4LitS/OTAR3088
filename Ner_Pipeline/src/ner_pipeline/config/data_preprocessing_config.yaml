@@ -1,5 +1,0 @@
-defaults:
-  - _self_
-  - logging/hydra_config
-  - logging: other_loggers
-  - data: CeLLaTe_V2

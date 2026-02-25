@@ -1,9 +1,13 @@
-  # Model & Tokenizer
-  
-#name: "hf" 
-model_name_or_path: microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext
+# Model & Tokenizer
+model_name_or_path: Mardiyyah/cellate2.0-tapt_base-LR_5e-05
 
-classifier_dropout: 0.01
+
+#data
+data:
+  hf_path: OTAR3088/CeLLaTe_V1.0_no_vague_IOB
+  text_col: tokens
+  label_col: tags
+
 # Training hyperparameters
 args:
   learning_rate: ${lr}
@@ -37,10 +41,12 @@ args:
   #report_to: "none"  # options["wandb", "tensorboard", etc].
   seed: ${seed}
   data_seed: ${seed}
-  push_to_hub: false
-  push_to_hub_token: "" 
 
+use_data_aug: false
+data_aug_method: gazeteer
+max_ent_per_type: 5000
+aug_prob: 0.4
 
-
+use_weighted_trainer: false
 
 

@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from datasets import Dataset, DatasetDict
 from transformers import PreTrainedTokenizerBase, PreTrainedTokenizerFast
-from ner_pipeline.schemas.ner_params import IOBConfig, nlp, EntityDict, NerDataset
+from ner_pipeline.schemas.ner_dataset import IOBConfig, nlp, EntityDict, NerDataset
 
 
 

@@ -1,7 +1,6 @@
-
-
-
-
+from typing import Union, List
+from datasets import Dataset
+from transformers import PreTrainedTokenizerBase, PreTrainedTokenizerFast
 
 
 def _shift_label(label):
@@ -24,26 +23,25 @@ def align_labels_with_tokens(labels, word_ids):
     return new_labels
 
 
-def tokenize_and_align(examples,
-                       tokenizer,
-                       block_size=512,
-                       tag_col='labels',
-                       text_col='words'):
+def tokenize_and_align(example: Dataset,
+                       tokenizer: Union[PreTrainedTokenizerBase, PreTrainedTokenizerFast],
+                       block_size: int = 512,
+                       tag_col: str = 'labels',
+                       text_col: str ='words'):
     
 
     
     tokenized_inputs = tokenizer(
-        examples[text_col],
+        example[text_col],
         max_length=block_size,
         truncation=True,
         is_split_into_words=True
     )
     new_labels = []
 
-    for i, labels in enumerate(examples[tag_col]):
+    for i, labels in enumerate(example[tag_col]):
       word_ids = tokenized_inputs.word_ids(i)
       new_labels.append(align_labels_with_tokens(labels, word_ids))
 
     tokenized_inputs['labels'] = new_labels
     return tokenized_inputs
-

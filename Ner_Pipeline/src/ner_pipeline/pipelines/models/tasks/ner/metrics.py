@@ -1,5 +1,5 @@
 """
-to move all metrics logic here including seqeval and nervaluate f
+to move all ner metrics logic here including seqeval and nervaluate f
 """
 from loguru import logger
 

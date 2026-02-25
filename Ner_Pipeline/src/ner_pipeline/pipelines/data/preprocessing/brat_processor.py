@@ -9,25 +9,17 @@ from tqdm import tqdm
 from datasets import Dataset
 
 
-
-
 #custom modules
-from utils.file_writers import write_to_conll
-from utils.file_readers import load_brat
 from .iob_converter import SpacyIOBConverter, HFIOBConverter
 from .entity_processor import sentencize_and_align_entity_spans, rename_ent, filter_ent
-from ..schemas.ner_params import BratConfig, IOBConfig, nlp
+
+from ner_pipeline.utils.io.writers import write_to_conll
+from ner_pipeline.utils.io.readers import load_brat
+from ner_pipeline.utils.hf_hub_utils import HFParams
+
+from ner_pipeline.schemas.ner_dataset_schema import BratConfig, IOBConfig, nlp, 
 
 
-
-
-@dataclass
-class HFParams:
-  "Default HF params"
-  hf_dataset_name:str
-  is_private:bool=False
-  token:str=None
-  commit_message:str="Add dataset to hub"
 
 
 class BratProcessor:
@@ -47,7 +39,7 @@ class BratProcessor:
                output_dir:Union[Path, str]=None,
                brat_config:Optional[BratConfig]= None,
                iob_config:Optional[IOBConfig]=None,
-               hf_params:Optional[HFParams]= None
+               hf_params:Optional[PushToHubParams]= None
                ):
     self.input_dir = Path(input_dir)
     self.output_dir = Path(output_dir) if output_dir else None
@@ -119,7 +111,7 @@ class BratProcessor:
     dataset = Dataset.from_list(dataset_lst)
 
     dataset_kwargs = {
-      "repo_id": self.hf_params.hf_dataset_name,
+      "repo_id": self.hf_params.repo_id,
       "commit_message": self.hf_params.commit_message,
     }
     if self.hf_params.is_private:

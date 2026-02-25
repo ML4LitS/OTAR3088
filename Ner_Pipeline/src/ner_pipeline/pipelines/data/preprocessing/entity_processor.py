@@ -4,7 +4,7 @@ import pyarrow as pa
 import spacy
 import scispacy
 
-from ..schemas.ner_params import nlp, EntityDict
+from ner_pipeline.schemas.ner_dataset import nlp, EntityDict
 
 DatasetColumn = pa.ChunkedArray
 

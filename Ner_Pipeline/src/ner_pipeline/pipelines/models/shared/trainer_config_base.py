@@ -1,8 +1,11 @@
 from typing import (
                     List, Dict, 
                     Union, Optional, 
-                    Callable, Any
+                    Callable, Any,
+                    Type
                 )
+            
+from enum import Enum
 from dataclasses import field, dataclass
 from omegaconf import DictConfig
 
@@ -14,16 +17,36 @@ from datasets import Dataset
 from transformers import (
     PreTrainedTokenizerBase, 
     PreTrainedTokenizerFast, 
-    DataCollatorForTokenClassification, 
-    DataCollatorForWholeWordMask,
-    DataCollatorForLanguageModeling, 
-    Trainer, 
     TrainingArguments,
     TrainerCallback
 
 )
 
-from .model_factory import CustomCallback
+@dataclass(frozen=True)
+class BaseTrainerKwargs:
+    """
+    Base Container object for keyword arguments passed directly to the
+    HuggingFace `Trainer` constructor.
+
+
+    Attributes
+    ----------
+    train_dataset : Dataset
+        Tokenized training dataset.
+    eval_dataset : Dataset
+        Tokenized validation dataset.
+    model : torch.nn.Module
+        Model instance used for training.
+    processing_class : PreTrainedTokenizerBase | PreTrainedTokenizerFast
+        Tokenizer used for preprocessing and postprocessing.
+    """
+    train_dataset: Dataset
+    eval_dataset: Dataset
+    model: nn.Module
+    processing_class: Union[PreTrainedTokenizerBase, PreTrainedTokenizerFast]
+    args: TrainingArguments
+    compute_metrics: Callable
+
 
 
 
@@ -60,49 +83,28 @@ class BuildContext:
     wandb_run: Optional[WandbRun] = None
     wandb_artifact: Optional[WandbArtifact] = None
 
-@dataclass(frozen=True)
-class BaseTrainerKwargs:
-    """
-    Container object for keyword arguments passed directly to the
-    HuggingFace `Trainer` constructor.
-
-
-    Attributes
-    ----------
-    train_dataset : Dataset
-        Tokenized training dataset.
-    eval_dataset : Dataset
-        Tokenized validation dataset.
-    model : torch.nn.Module
-        Model instance used for training.
-    processing_class : PreTrainedTokenizerBase | PreTrainedTokenizerFast
-        Tokenizer used for preprocessing and postprocessing.
-    args : TrainingArguments
-        HuggingFace training arguments.
-    data_collator : DataCollator
-        Data collator responsible for batch construction.
-    compute_metrics : Callable
-        Metric computation function used during evaluation.
-    id2label : Dict[int, str]
-        Mapping from label IDs to label names.
-    """
-    train_dataset: Dataset
-    eval_dataset: Dataset
-    model: nn.Module
-    processing_class: Union[PreTrainedTokenizerBase, PreTrainedTokenizerFast]
-    data_collator: DataCollatorForTokenClassification
-    compute_metrics: Callable
-    id2label: Dict[int, str]
-
 @dataclass(kw_only=True)
-class BuildComponents:
+class HFTrainingComponents:
     trainer_kwargs: BaseTrainerKwargs
     strategy_kwargs: Dict[str, Any] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
-    callbacks: Union[List[CustomCallback], List[TrainerCallback]]
+    callbacks: List[TrainerCallback] = field(default_factory=list)
 
 
-@dataclass(frozen=True)
-class TaptTrainerKwargs(BaseTrainerKwargs):
-    data_collator: Union[DataCollatorForLanguageModeling, DataCollatorForWholeWordMask]
-    preprocess_logits_for_metrics: Callable
+@dataclass
+class PushToHubParams:
+  "Default HF params"
+  repo_id:str
+  push_to_org_repo: bool = False
+  is_private: bool = False
+  token: str = None
+  commit_message: str = "Add model to hub"
+
+
+class TrainingStrategyName(str, Enum):
+    "Training Strategy types"
+    BASE = "base"
+    REINIT = "reinit_only"
+    LLRD = "llrd_only"
+    REINIT_LLRD = "reinit_llrd"
+    GROUPED_LLRD = "grouped_llrd" 

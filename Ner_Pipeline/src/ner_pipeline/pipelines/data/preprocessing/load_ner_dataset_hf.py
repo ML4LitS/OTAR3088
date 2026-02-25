@@ -10,9 +10,12 @@ from hydra.utils import to_absolute_path
 
 
 
-from utils.file_parsers import read_conll
-from utils.hf_utils import split_dataset
+from ner_pipeline.utils.io.readers import read_conll
+from ner_pipeline.pipelines.models.shared.data_factory import split_dataset
 
+"""
+to refactor into a class
+"""
 
 
 def load_ner_dataset(

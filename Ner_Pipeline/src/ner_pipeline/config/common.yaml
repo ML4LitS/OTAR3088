@@ -3,7 +3,7 @@ defaults:
   - logging/hydra_config
   - logging: other_loggers
   - model: ner
-  - data: CeLLaTe1.0_no_vague
+  - data: CeLLaTe_no_vague
   
 
 

@@ -1,6 +1,6 @@
 from dataclasses import replace
 from loguru import logger
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 
 import torch.nn as nn
 from transformers.trainer_callback import EarlyStoppingCallback
@@ -94,14 +94,14 @@ class NerTrainingCompBuilder(HFTrainingCompBuilder):
 
         #prepare model
         model = build_ner_model(
-                    self.cfg.model.model_name_or_path,
+                    self.cfg.task.model_name_or_path,
                     len(unique_tags), label2id,
                     id2label, device
                     )
         max_pos_emb = model.config.max_position_embeddings
 
         #init tokenizer, data_collator
-        tokenizer, data_collator = init_tokenizer_data_collator(self.cfg.model.model_name_or_path)
+        tokenizer, data_collator = init_tokenizer_data_collator(self.cfg.task.model_name_or_path)
         tokenize_fn = lambda batch: tokenize_and_align(batch, tokenizer=tokenizer, block_size=max_pos_emb)
         tokenized_train = train_dataset.map(tokenize_fn, 
                                             batched=True,
@@ -122,9 +122,14 @@ class NerTrainingCompBuilder(HFTrainingCompBuilder):
 
         # Optional log to wandb
         if getattr(self.cfg, "use_wandb", False) and wandb_run is not None:
-            wandb_run.log({"Model checkpoint used for this run": self.cfg.model.model_name_or_path})
+            wandb_run.log({"Model checkpoint used for this run": self.cfg.task.model_name_or_path})
+            # Convert ListConfig to native Python list for JSON serialization
+            unique_tags_list = OmegaConf.to_container(unique_tags) \
+                                            if hasattr(unique_tags, '__class__') \
+                                            and 'ListConfig' in str(type(unique_tags)) \
+                                            else list(unique_tags)
             wandb_run.log({
-                "Unique labels": unique_tags,
+                "Unique labels": unique_tags_list,
                 "Num classes": len(unique_tags)
             })
         trainer_kwargs = NerTrainerKwargs(
@@ -138,7 +143,6 @@ class NerTrainingCompBuilder(HFTrainingCompBuilder):
                                 id2label=id2label
                         )
 
-        #early_stopping_callback = EarlyStoppingCallback(3)
 
         components = HFTrainingComponents(trainer_kwargs=trainer_kwargs,
                                        callbacks=[CustomCallback],

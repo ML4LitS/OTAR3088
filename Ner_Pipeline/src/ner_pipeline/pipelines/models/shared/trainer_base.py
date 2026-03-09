@@ -50,11 +50,13 @@ class HFTrainingOrchestratorConfig:
             Whether the trained model should be pushed to the Hugging Face Hub
             after training completes.
     """
-    #context: Type[BuildContext]
+    context: Type[BuildContext]
     builder: Type[HFTrainingCompBuilder] 
     metrics_logger: Type[MetricsLogger]
     hub_params: Optional[PushToHubParams]
-    publish_model: bool=False
+    publish_model: bool
+    wandb_run: Optional[None]
+    wandb_artifact: Optional[None]
 
 
 
@@ -113,7 +115,9 @@ class HFTrainingOrchestrator(ABC):
         """
 
         self.runner_conf = runner_conf
-        #self.context = self.runner_conf.context
+        self.context = self.runner_conf.context
+        self.wandb_run = self.context.wandb_run
+        self.wandb_artifact = self.context.wandb_artifact
         self.builder = self.runner_conf.builder
         self.components = self.builder.apply_strategy()
         self.metrics_logger = self.runner_conf.metrics_logger
@@ -132,8 +136,14 @@ class HFTrainingOrchestrator(ABC):
         if not self._is_trained:
             raise RuntimeError(
                 "Training not initialised.\n"
-                "Call `execute()` to run training step first\n"
-                "before accessing trainer artififacts."
+                "Call `execute()` to run training step first, "
+                "before accessing trainer artifacts."
+            )
+
+    def _validate_trainer_built(self):
+        if self.trainer is None:
+            raise RuntimeError(
+                "Trainer not built. `_build_trainer()` must assign self.trainer."
             )
 
 
@@ -188,7 +198,6 @@ class HFTrainingOrchestrator(ABC):
         Returns:
             dict: Evaluation metrics dictionary.
         """
-        logger.info("Running final evaluation on validation set...")
         self.eval_results = self.trainer.evaluate()
         logger.info(f"Final evaluation results: {self.eval_results}")
         return self.eval_results
@@ -247,19 +256,16 @@ class HFTrainingOrchestrator(ABC):
         #build trainer
         self._build_trainer()
 
-        if self.trainer is None:
-            raise RuntimeError(
-                "_build_trainer() must assign self.trainer."
-            )
+        self._validate_trainer_built()
 
 
         #init training
         self.train_results = self._run_training()
 
         #get best checkpoint
-        best_ckpt_path = self.trainer.state.best_model_checkpoint
-        logger.info(f"Best checkpoint for this run: {best_ckpt_path}")
-        self.trainer.save_model(best_ckpt_path)
+        self.best_ckpt_path = self.trainer.state.best_model_checkpoint
+        logger.info(f"Best checkpoint for this run: {self.best_ckpt_path}")
+        self.trainer.save_model(self.best_ckpt_path)
         self.trainer.save_state()
         logger.info("Training completed...")
         logger.info("Running final evaluation on validation set...")
@@ -275,7 +281,8 @@ class HFTrainingOrchestrator(ABC):
         self._is_trained = True
 
         #optional experiment logging to WANDB
-        self._log_to_wandb() 
+        if self.builder.cfg.use_wandb:
+            self._log_to_wandb() 
 
         #optional publish model to Huggingface hub
         if self.publish_model:
@@ -289,7 +296,7 @@ class HFTrainingOrchestrator(ABC):
         return {
             "train_results": self.train_results,
             "eval_results": self.eval_results,
-            "best_checkpoint_path": best_ckpt_path,
+            "best_checkpoint_path": self.best_ckpt_path,
             "trainer_log_history": self.trainer_log_history
         }
 

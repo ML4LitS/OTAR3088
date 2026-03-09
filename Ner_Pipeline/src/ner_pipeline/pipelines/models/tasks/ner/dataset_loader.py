@@ -17,15 +17,18 @@ import pandas as pd
 from datasets import (
                       Dataset, DatasetDict, 
                       Sequence, Value, ClassLabel,
-                      load_dataset
+                      load_dataset, concatenate_datasets
                       )
 
 from loguru import logger
 from wandb.sdk.wandb_run import Run as WandbRun
 from ner_pipeline.utils.common import set_seed
 from ner_pipeline.utils.io.readers import read_conll
+from .data_augmentation import GazetteerConfig, GazetteerAugmentationStrategy
 
-def cast_to_class_labels(dataset:Dataset, label_col:str, text_col:str, unique_tags:List):
+
+
+def cast_to_class_labels(dataset:Dataset, label_col:str, text_col:str):
     """
     Casts dataset columns to int, primarily for classification tasks
     (e.g token classification).
@@ -47,10 +50,27 @@ def cast_to_class_labels(dataset:Dataset, label_col:str, text_col:str, unique_ta
     """    
     features = dataset.features.copy()
     features[text_col] = Sequence(Value("string"))
-    features[label_col] = Sequence(ClassLabel(names=unique_tags,
-                                              num_classes=len(unique_tags)
-                                              ))
-    return dataset.cast(features, load_from_cache_file=True)
+    # features[label_col] = Sequence(ClassLabel(names=sorted(unique_tags),
+    #                                           num_classes=len(unique_tags)
+    #                                           ))
+    features[label_col] = Sequence(Value("int64"))
+    return dataset.cast(features, load_from_cache_file=False)
+
+def encode_labels(example, label_col, label2id):
+    """Encode labels to IDs. Handles both single examples and batches."""
+    labels = example[label_col]
+    
+    # Check if batched (list of lists) or single example (list)
+    if labels and isinstance(labels[0], list):
+        # Batched: [[tag1, tag2, ...], [tag3, tag4, ...], ...]
+        example[label_col] = [[label2id[tag] for tag in label_sequence] for label_sequence in labels]
+    else:
+        # Single example: [tag1, tag2, ...]
+        example[label_col] = [label2id[tag] for tag in labels]
+    
+    return example
+
+
 
 
 def update_counters(labels: List,
@@ -178,8 +198,8 @@ class PrepareNerDatasets:
         dataset_split = list(dataset.keys())
         if "train" not in dataset_split:
             raise ValueError("No training split found in dataset")
-        known_val_headers = ["validation", "val", "dev", "eval"]
-        if not any(header in dataset_split for header in known_val_headers):
+        known_headers = ["validation", "val", "dev", "eval"]
+        if not any(header in dataset_split for header in known_headers):
             raise ValueError("No validation split found in dataset. Inspect your dataset and rename columns if possible.\n"
                         f"Common validation headers used in HF datasets are: {known_headers}")
         else:
@@ -309,7 +329,7 @@ class PrepareNerDatasets:
         elif self.cfg.source_type.lower() == "local":
             dataset_path = to_absolute_path(self.cfg.data.data_folder)
             dataset = load_ner_dataset(dataset_path, source_type=self.source_type,
-                                    file_type=self.cfg.file_type)
+                                    file_type=self.cfg.data.file_type)
         
         data_split = list(dataset.keys())
         logger.info(f"This dataset has {len(data_split)} split(s)")
@@ -364,23 +384,57 @@ class PrepareNerDatasets:
         logger.info(f"Train entity counts after filtering (without IOB): \n{self._train_ent_wo_iob}")
         logger.info(f"Validation entity counts after filtering(without IOB): \n{self._eval_ent_wo_iob}")
 
-        unique_tags = list(set(self._train_ent_iob.keys()) | set(self._eval_ent_iob.keys()))
+        #unique_tags = list(set(self._train_ent_iob.keys()) | set(self._eval_ent_iob.keys()))
 
-        label2id, id2label = get_label2id_id2label(unique_tags) 
+        unique_tags = list(self.cfg.task.ner_tag_list)
+        logger.info(f"Unique Tag list: {unique_tags}")
 
-        train_dataset = cast_to_class_labels(train_dataset, label_col, text_col, unique_tags)
-        eval_dataset = cast_to_class_labels(eval_dataset, label_col, text_col, unique_tags)
+        label2id, id2label = get_label2id_id2label(self.cfg.task.ner_tag_list) 
+        logger.info(f"Label2id: {label2id}")
+   
+        
+        train_dataset = train_dataset.map(lambda x: encode_labels(x, 
+                                                        label_col=label_col, 
+                                                        label2id=label2id), batched=True)
 
-        if getattr(self.cfg, "use_wandb", False) and self.wandb_run is not None:
-            self.wandb_run.log({
-                "Text column in dataset": text_col,
-                "Labels column in dataset": label_col,
-                "Unique labels in dataset": list(unique_tags),
-                "Labels count in train dataset": dict(self._train_ent_wo_iob),
-                "Labels count in val dataset": dict(self._eval_ent_wo_iob),
-                "Train Label counts in IOB": dict(self._train_ent_iob), 
-                "Validation Label counts in IOB": dict(self._eval_ent_iob)
-            })
+        eval_dataset = eval_dataset.map(lambda x: encode_labels(x, 
+                                                        label_col=label_col, 
+                                                        label2id=label2id), batched=True)
+        
+        
+        
+        train_dataset = cast_to_class_labels(train_dataset, label_col, text_col)
+        eval_dataset = cast_to_class_labels(eval_dataset, label_col, text_col)                                          
+
+        if getattr(self.cfg.task, "use_data_aug", False):
+            #use gazetteer as default as other methods are yet to be implemented
+            data_aug_method =  getattr(self.cfg.task, "data_aug_method", "gazetteer")
+            logger.info("Applying Gazetteer to train_dataset ----->")
+            #apply gazeeteer
+            gaz_config = GazetteerConfig(train_dataset,
+                                    text_col = text_col,
+                                    label_col = label_col,
+                                    id2label = id2label,
+                                    label2id = label2id
+                                                        )
+
+            gazetteer_builder = GazetteerAugmentationStrategy(gaz_config)
+
+            logger.info("generating new samples")
+            augmented_train_samples = []
+            num_aug = getattr(self.cfg, "num_gaz_aug", 3)
+            for _ in range(num_aug):
+                augmented_train_samples.append(gazetteer_builder.augment())
+    
+            logger.success(f"New samples generated successfully \
+                            Generated dataset: {augmented_train_samples}")
+            logger.info("Appending samples to train dataset")
+            train_dataset = concatenate_datasets([train_dataset] + augmented_train_samples)
+            logger.info(f"New train_dataset: {train_dataset}")
+
+        self._log_to_wandb(text_col, 
+                            label_col,
+                            unique_tags)
     
         self._dataset_artifact = DatasetArtifact(
                     train_dataset=train_dataset,
@@ -390,6 +444,15 @@ class PrepareNerDatasets:
                     id2label=id2label
                 )
         return self._dataset_artifact
+
+    def _log_to_wandb(self, text_col, label_col, unique_tags):
+        if getattr(self.cfg, "use_wandb", False) and self.wandb_run is not None:
+            self.wandb_run.log({
+                "Text column in dataset": text_col,
+                "Labels column in dataset": label_col,
+                "Unique labels in dataset": list(unique_tags),
+            })
+
 
 
 class NerDatasetLoader:

@@ -30,7 +30,11 @@ class NerTrainingOrchestratorConfig(HFTrainingOrchestratorConfig):
     pass
 
 
-
+@dataclass
+class NerPredictions:
+    true_labels: List[List[str]]
+    pred_labels: List[List[str]]
+    label_names: List[str]
 
 
 

@@ -1,5 +1,5 @@
 from typing import Dict, Any
-
+from abc import ABC, abstractmethod
 
 
 class MetricsLogger:
@@ -63,3 +63,21 @@ class MetricsLogger:
             self.metrics["eval_samples"] = len(trainer.eval_dataset)
         trainer.log_metrics(metrics_name, self.metrics)
         trainer.save_metrics(metrics_name, self.metrics)
+
+
+
+class WandbMetricsLogger(ABC):
+    "Base class for logging Metrics as tables to Wandb"
+    def __init__(self, wandb_run=None):
+        if wandb_run is None:
+            raise ValueError("Wandb run is not initialised/setup")
+
+        self.wandb_run = wandb_run
+
+    @abstractmethod
+    def _create_wandb_table(self):
+        pass
+
+    @abstractmethod
+    def log(self):
+        pass

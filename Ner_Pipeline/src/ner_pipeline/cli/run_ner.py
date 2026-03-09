@@ -1,5 +1,6 @@
 
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
 from loguru import logger
@@ -19,9 +20,12 @@ from ner_pipeline.pipelines.models.shared.trainer_config_base import (BuildConte
 from ner_pipeline.pipelines.models.shared.metrics_base import MetricsLogger
 from ner_pipeline.pipelines.models.shared.trainer_base import HFTrainingOrchestratorConfig
 from ner_pipeline.pipelines.models.shared.experiment_manager import ExperimentSubfolderFactory
-from ner_pipeline.pipelines.models.shared.logging_manager import LoguruHelperFactory
+from ner_pipeline.pipelines.models.shared.logging_manager import (LoguruHelperFactory, 
+                                                                    WandbRunManagerFactory
+                                                                                            )
 
-
+os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8" 
+os.environ["WANDB_CACHE_DIR"] = Path.cwd() / ".cache"
 @hydra.main(config_path="../config", config_name="common", version_base=None)
 @logger.catch
 def run(cfg:DictConfig):
@@ -35,6 +39,7 @@ def run(cfg:DictConfig):
     loguru_helper = LoguruHelperFactory.create(cfg)
     loguru_helper.configure()
 
+
     #build experiment subfolder
     subfolder_builder = ExperimentSubfolderFactory.create(cfg)
     subfolder_builder.build()
@@ -45,15 +50,30 @@ def run(cfg:DictConfig):
 
     logger.info(f"Current device set as: {device}")
 
-    wandb_run, run_artifact = None, None
+    wandb_run, wandb_artifact = None, None
     #disable wandb if not set to true in config
     if not cfg.use_wandb:
-      os.environ["WANDB_MODE"] = "disabled"
-      logger.info(f"Logging to Wandb is disabled for this run.")
+        os.environ["WANDB_MODE"] = "disabled"
+        logger.info(f"Logging to Wandb is disabled for this run.")
     
 
-    # else:
-    #  wandb logic not yet enabled in pipeline
+    else:
+        #init wandb if set to true in config
+        wandb_token = os.environ.get("WANDB_TOKEN")
+        wandb.login(key=wandb_token)
+
+        #fetch log_dir from loguru helper
+        log_dir = loguru_helper.log_dir
+
+        #init manager
+        run_manager = WandbRunManagerFactory.create(cfg, log_dir)
+        wandb_run = run_manager.setup_run()
+        wandb_artifact = run_manager.create_artifact()
+
+        logger.info(f"Logging to Wandb is enabled for this run. \
+                    Run logs and metadata will be logged to: {cfg.logging.wandb.run.project}")
+        wandb_run.log({"Current device for run" : device})
+
 
     output_dir = create_output_dir(base_path=BASE_PATH, 
                                   experiment_subfolder=experiment_subfolder)
@@ -64,8 +84,8 @@ def run(cfg:DictConfig):
                 cfg = cfg,
                 output_dir = output_dir,
                 device = device, 
-                #wandb_run =  wandb_run
-                #wandb_artifact = wandb_artifact
+                wandb_run =  wandb_run,
+                wandb_artifact = wandb_artifact
             )
     #build training components
     training_comp = NerTrainingCompBuilder(context)
@@ -73,19 +93,25 @@ def run(cfg:DictConfig):
     #init training metrics logger
     metrics_logger = MetricsLogger()
 
-    #set push to hub params
-    hub_params = PushToHubParams(
-                            repo_id = cfg.repo_id,
-                            push_to_org_repo = cfg.push_to_org_repo,
-                            commit_message = cfg.commit_message
-                            )
+    hub_params = None
+
+    if cfg.publish_model:
+        #set push to hub params
+        hub_params = PushToHubParams(
+                                repo_id = cfg.repo_id,
+                                push_to_org_repo = cfg.push_to_org_repo,
+                                commit_message = cfg.commit_message
+                                )
 
     #pass everything to training orchestrator config
     orchestrator_conf = HFTrainingOrchestratorConfig(
+                                context = context,
                                 builder = training_comp,
                                 metrics_logger = metrics_logger,
                                 hub_params = hub_params,
-                                publish_model = cfg.publish_model
+                                publish_model = cfg.publish_model,
+                                wandb_run = wandb_run,
+                                wandb_artifact = wandb_artifact
                                 )
 
     #pass orchestrator config to main training orchestrator

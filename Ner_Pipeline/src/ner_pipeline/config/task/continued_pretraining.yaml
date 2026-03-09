@@ -1,0 +1,24 @@
+
+
+#data artifacts
+dataset_name: Mardiyyah/TAPT_CeLLaTe1.0
+data_kwargs: cellate
+data_version: null
+text_col: FullText
+
+#model artifacts
+model_checkpoint: microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext
+tokenizer_checkpoint: Mardiyyah/biomedbert_tokenizer_extended
+
+#Data collator args
+use_whole_word_mask: true
+mlm_probablity: 0.15
+
+#tokenizer args
+group_text: true
+
+#training_args
+warmup_ratio: 0.06
+adam_epsilon: 1e-6
+
+

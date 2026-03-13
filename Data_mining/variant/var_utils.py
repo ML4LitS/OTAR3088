@@ -1,9 +1,8 @@
 # Utility functions relating to variant model investigations
-
 import pandas as pd
+import re
 import requests
 import torch
-
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pprint import pprint
@@ -217,7 +216,7 @@ def _deduplicate(entities: list[Entity]) -> list[Entity]:
             unique.append(ent)
     return unique
 
-# ── Pipeline: run over all ParsedPaper sections ────────────────────────────────────
+# Pipeline: run over all ParsedPaper sections
 def run_ner_pipeline(parsed_paper: "ParsedPaper", tokenizer, model, id2label) -> list[SectionResult]:
     """
     Run NER over every section of a ParsedPaper.
@@ -245,7 +244,6 @@ def run_ner_pipeline(parsed_paper: "ParsedPaper", tokenizer, model, id2label) ->
         ))
     return results
 
-# ── Annotation outputs ──────────────────────────────────────────────────────────
 def get_context(text: str, entity: Entity, window: int = 5) -> str:
     """
     Return up to `window` words either side of the entity span,
@@ -272,3 +270,138 @@ def get_context(text: str, entity: Entity, window: int = 5) -> str:
     mid   = words[first : last + 1]
     right = words[last + 1 : last + 1 + window]
     return f"…{' '.join(left)} ***{' '.join(mid)}*** {' '.join(right)}…"
+
+# ── Regex-related funcs ──────────────────────────────────────────────────────────
+
+# Map look-alike characters -> ASCII equivalents
+HOMOGLYPH_MAP = str.maketrans({
+    0x0441: 'c',   # Cyrillic с → c
+    0x0440: 'p',   # Cyrillic р → p
+    0x0435: 'e',   # Cyrillic е → e
+    0x0430: 'a',   # Cyrillic а → a
+    0x2013: '-',   # en-dash → hyphen
+    0x2212: '-',   # minus sign → hyphen
+    0x2014: '-',   # em-dash → hyphen
+})
+
+def map_to_ascii(text: str) -> str:
+    """ 
+    Replace homoglyph characters with ASCII equivalents.
+    Catches chars which may block terms from being caught by regex.
+    E.g. 'с.181T >G', wherein 'с' is a Cyrillic character U+0441.
+    This can be confused for ASCII 'c', character U+0063
+    """
+    return text.translate(HOMOGLYPH_MAP)
+
+"""
+ePMC patterns file defines database cross-references based on regex patterns
+Those useful for variant capture include:
+- refsnp (dbSNP)
+- gca (INSDC genome assembly accessions)
+"""
+
+## Rough estimate of mapped genome assembly references
+GENOME_ASSEMBLY_ALIASES = {
+    # Human
+    "GRCh38": ["hg38", "GRCh38", "GRCh38.p13", "GRCh38.p14", "hg38/GRCh38", "NCBIBuild38"],
+    "GRCh37": ["hg19", "GRCh37", "GRCh37.p13", "b37", "hs37d5", "NCBIBuild37", "NCBI37"],
+    "NCBI36": ["hg18", "NCBI36", "NCBIBuild36"],
+    # Mouse
+    "GRCm39": ["mm39", "GRCm39"],
+    "GRCm38": ["mm10", "GRCm38", "mm10/GRCm38"],
+    "GRCm37": ["mm9",  "NCBI37 (mouse)"],
+}
+# Invert {} for string-searching
+SYNONYM_TO_TERM = {
+    syn: term
+    for term, syns in GENOME_ASSEMBLY_ALIASES.items()
+    for syn in syns
+}
+# Regex setup
+_ASSEMBLY_TERMS = sorted(SYNONYM_TO_TERM, key=len, reverse=True)
+GENOME_RE = re.compile(
+    r'\b(?:' + '|'.join(re.escape(t) for t in _ASSEMBLY_TERMS) + r')\b',
+    re.IGNORECASE
+)
+
+## Compilation of patterns for HGVS statements
+# ── Amino acid codes ────────────────────────────────────────────────────────
+_AA3 = r'(?:Ala|Arg|Asn|Asp|Cys|Gln|Glu|Gly|His|Ile|Leu|Lys|Met|Phe|Pro|Ser|Thr|Trp|Tyr|Val|Ter|Sec)'
+_AA1 = r'[ACDEFGHIKLMNPQRSTVWY]'
+
+# ── Nucleotide change types (shared by g. c. n. r.) ─────────────────────────
+# _NUC_POS   = r'[0-9]+(?:[ \t]*[+\-][ \t]*[0-9]+)?'           # e.g. 76, 1799+2
+_NUC_POS = r'(?:\*|-)?[0-9]+(?:[ \t]*[+\-][ \t]*[0-9]+)?'
+_NUC_RANGE = r'[0-9]+(?:[ \t]*[+\-][ \t]*[0-9]+)?[ \t]*_[ \t]*[0-9]+(?:[ \t]*[+\-][ \t]*[0-9]+)?' # e.g. 76_78
+_NUC_BASE  = r'[ACGTUacgtu]'
+_SUBST = rf'{_NUC_POS}\s*{_NUC_BASE}\s*>\s*{_NUC_BASE}' # substitution:  A>T, considerate of () // whitespace
+
+_NUC_CHANGE = (
+    r'(?:'
+    rf'{_SUBST}'
+    rf'|(?:{_NUC_RANGE}|{_NUC_POS})[ \t]*delins[ \t]*{_NUC_BASE}+' # indel:    76_78delinsAT
+    rf'|(?:{_NUC_RANGE}|{_NUC_POS})[ \t]*del[ \t]*{_NUC_BASE}*'    # deletion: 76del / 76_78del
+    rf'|(?:{_NUC_RANGE}|{_NUC_POS})[ \t]*dup[ \t]*{_NUC_BASE}*'    # duplication
+    rf'|{_NUC_RANGE}[ \t]*ins[ \t]*{_NUC_BASE}+'                   # insertion: 76_77insA
+    rf'|{_NUC_RANGE}[ \t]*inv'                                     # inversion
+    r')'
+)
+
+# ── Per-prefix patterns ──────────────────────────────────────────────────────
+HGVS_GENOMIC  = rf'g\.{_NUC_CHANGE}'                # g.140453136A>T
+HGVS_CODING   = rf'c\.{_NUC_CHANGE}'                # c.1799T>A
+HGVS_NCRNA    = rf'n\.{_NUC_CHANGE}'                # n.45G>C
+HGVS_RNA      = rf'r\.{_NUC_CHANGE}'                # r.76a>u
+
+HGVS_PROTEIN  = (
+    r'\(?p\.\(?(?:'                                  # (p.X) and p.(X) handled
+    rf'{_AA3}[0-9]+(?:'
+        rf'{_AA3}(?:fs(?:Ter[0-9]+)?)?'              # p.Val600Glu / p.Val600GlufsTer5
+        rf'|\*'                                      # p.Arg213*  (stop gained)
+        rf'|='                                       # p.Val600=  (synonymous)
+        rf'|del'                                     # p.Val600del
+        rf'|dup'                                     # p.Val600dup
+    r')'
+    rf'|{_AA1}[0-9]+[{_AA1[1:-1]}*=]'              # p.V600E / p.R213*  (1-letter)
+    r')'
+)
+
+# ── Optional accession prefix: NM_004333.6: or ENST00000288135.6: ───────────
+_ACCESSION = r'(?:\(?[ \t]*(?:NM|NR|NP|NC|NG|XM|XR|ENST|ENSP)_?[0-9]+(?:\.[0-9]+)?[ \t]*\)?[ \t]*:)?'
+
+# ── Combined pattern ─────────────────────────────────────────────────────────
+HGVS = re.compile(
+    _ACCESSION +
+    rf'(?:{HGVS_GENOMIC}|{HGVS_CODING}|{HGVS_NCRNA}|{HGVS_RNA}|{HGVS_PROTEIN})'
+)
+
+# ISCN / cytoband notation pattern
+CYTOBAND = re.compile(
+    r'\b(?:chr)?([0-9]{1,2}|X|Y)'   # chromosome
+    r'([pq][0-9]+(?:\.[0-9]+)?)'     # start band
+    r'(?:-[pq]?[0-9]+(?:\.[0-9]+)?)?' # optional end band
+    r'\s*(?:deletion|duplication|del|dup|inv)\b',
+    re.IGNORECASE
+)
+
+## Star allele suffix — follows a gene name
+_STAR_SUFFIX = re.compile(
+    r'\s*\*\s*[0-9]+[A-Za-z]?(?::[0-9]+[A-Za-z]?)*'          # *13, *02:01
+    r'(?:\s*\+\s*\*\s*[0-9]+[A-Za-z]?(?::[0-9]+[A-Za-z]?)*)*' # optional: + *2
+)
+
+def find_star_alleles(text: str, gene_spans: list[tuple]) -> list[tuple]:
+    """
+    For identified geneprotein spans, check if star allele notation
+    immediately follows. Returns (text, start, end, label) tuples.
+    gene_spans: list of (word, start, end, label)
+    """
+    results = []
+    for word, g_start, g_end, label in gene_spans:
+        m = _STAR_SUFFIX.match(text, g_end)   # anchored at gene end position
+        if m:
+            full_span = text[g_start:m.end()]
+            results.append((full_span, g_start, m.end(), "StarAllele"))
+        else:
+            results.append((word, g_start, g_end, label))
+    return results
